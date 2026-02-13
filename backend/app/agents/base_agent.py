@@ -24,6 +24,10 @@ class AgentRole(str, Enum):
     CRISIS_MANAGER = "crisis_manager"
     GROWTH_HACKER = "growth_hacker"
     REPORT_GENERATOR = "report_generator"
+    VIDEO_PRODUCTION = "video_production"
+    SCHEDULING = "scheduling"
+    AB_TESTING = "ab_testing"
+    ORCHESTRATOR = "orchestrator"
 
 
 class AgentState(str, Enum):
