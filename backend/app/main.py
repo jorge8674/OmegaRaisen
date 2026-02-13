@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
-from app.api.routes import content, strategy
+from app.api.routes import content, strategy, analytics
 
 # Create FastAPI application
 app = FastAPI(
@@ -29,6 +29,7 @@ app.add_middleware(
 # Include API routes
 app.include_router(content.router, prefix=settings.api_v1_prefix)
 app.include_router(strategy.router, prefix=settings.api_v1_prefix)
+app.include_router(analytics.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")
