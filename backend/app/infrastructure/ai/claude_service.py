@@ -15,7 +15,7 @@ class ClaudeService:
     
     def __init__(self):
         self.client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-        self.model = settings.anthropic_model
+        self.model = "claude-3-5-sonnet-20241022"
     
     async def generate_text(
         self,
