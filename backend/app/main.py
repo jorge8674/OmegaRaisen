@@ -14,7 +14,8 @@ from app.api.routes import (
     monitor,
     brand_voice,
     competitive,
-    trends
+    trends,
+    crisis
 )
 
 # Create FastAPI application
@@ -44,6 +45,7 @@ app.include_router(monitor.router, prefix=settings.api_v1_prefix)
 app.include_router(brand_voice.router, prefix=settings.api_v1_prefix)
 app.include_router(competitive.router, prefix=settings.api_v1_prefix)
 app.include_router(trends.router, prefix=settings.api_v1_prefix)
+app.include_router(crisis.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")
