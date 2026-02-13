@@ -8,7 +8,7 @@ from typing import List
 from app.agents.ab_testing_agent import ab_testing_agent
 from app.services.experiment_engine import Experiment, ABTestResult
 
-router = APIRouter()
+router = APIRouter(prefix="/ab-testing", tags=["ab-testing"])
 
 
 # Request Models

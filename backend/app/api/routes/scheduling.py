@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List
 from app.agents.scheduling_agent import scheduling_agent
 
-router = APIRouter()
+router = APIRouter(prefix="/scheduling", tags=["scheduling"])
 
 
 # Request Models

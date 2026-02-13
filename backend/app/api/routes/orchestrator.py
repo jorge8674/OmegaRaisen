@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict
 from app.agents.orchestrator_agent import orchestrator_agent
 
-router = APIRouter()
+router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
 
 
 # Request Models

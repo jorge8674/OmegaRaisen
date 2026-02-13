@@ -8,7 +8,7 @@ from typing import List
 from app.agents.video_production_agent import video_production_agent
 from app.services.video_pipeline import VideoSpec, VideoScript
 
-router = APIRouter()
+router = APIRouter(prefix="/video", tags=["video"])
 
 
 # Request Models
