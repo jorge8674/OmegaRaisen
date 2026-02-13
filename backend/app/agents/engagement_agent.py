@@ -48,7 +48,7 @@ class EngagementAgent(BaseAgent):
         super().__init__(
             agent_id=agent_id,
             role=AgentRole.ENGAGEMENT,
-            model="gpt-4",
+            model="gpt-4o",
             tools=[
                 "sentiment_analyzer",
                 "toxicity_detector",

@@ -15,8 +15,8 @@ class OpenAIService:
     
     def __init__(self):
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model
-        self.image_model = settings.openai_image_model
+        self.model = "gpt-4o"
+        self.image_model = "dall-e-3"
     
     async def generate_text(
         self,
