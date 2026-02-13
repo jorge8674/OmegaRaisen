@@ -128,7 +128,7 @@ class EngagementAgent(BaseAgent):
             if line.strip() and len(line.strip()) > 10
         ][:2]
         
-        return EngagementResponse(
+        response = EngagementResponse(
             response_text=response_text.strip(),
             tone_used=brand_voice,
             requires_human_review=analysis.requires_human,
@@ -136,6 +136,7 @@ class EngagementAgent(BaseAgent):
             confidence=analysis.sentiment.confidence,
             suggested_alternatives=alternatives
         )
+        return response.model_dump()
     
     async def handle_dm(
         self,
@@ -167,7 +168,7 @@ class EngagementAgent(BaseAgent):
             temperature=0.6
         )
         
-        return EngagementResponse(
+        response = EngagementResponse(
             response_text=response_text.strip(),
             tone_used="professional",
             requires_human_review=analysis.urgency_score > 0.7,
@@ -175,6 +176,7 @@ class EngagementAgent(BaseAgent):
             confidence=0.8,
             suggested_alternatives=[]
         )
+        return response.model_dump()
     
     async def detect_crisis(
         self,
@@ -182,13 +184,14 @@ class EngagementAgent(BaseAgent):
     ) -> CrisisAssessment:
         """Detect potential PR crisis"""
         if not comments:
-            return CrisisAssessment(
+            assessment = CrisisAssessment(
                 is_crisis=False,
                 severity="low",
                 affected_comments=0,
                 recommended_action="No action needed",
                 suggested_response=""
             )
+            return assessment.model_dump()
         
         # Analyze all comments
         analyses = [sentiment_processor.analyze_comment(c) for c in comments]
@@ -231,13 +234,14 @@ class EngagementAgent(BaseAgent):
         else:
             suggested_response = ""
         
-        return CrisisAssessment(
+        assessment = CrisisAssessment(
             is_crisis=is_crisis,
             severity=severity,
             affected_comments=negative_count,
             recommended_action=self._get_crisis_action(severity),
             suggested_response=suggested_response.strip()
         )
+        return assessment.model_dump()
     
     async def _analyze_comment(self, comment: str) -> Dict[str, Any]:
         """Analyze single comment"""
