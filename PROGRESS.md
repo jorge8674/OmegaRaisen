@@ -1,6 +1,6 @@
 # OmegaRaisen - Progress Tracker
 
-## 📊 Agentes Implementados: 3/15 (20%)
+## 📊 Agentes Implementados: 4/15 (27%)
 
 ### ✅ Completados
 
@@ -26,10 +26,17 @@
   - Dashboard data
   - **Endpoints**: 6
 
+- [x] **Agente 4: Engagement Agent** (GPT-4 + Sentiment Analysis)
+  - Respuestas a comentarios
+  - Manejo de DMs
+  - Análisis de sentimientos
+  - Detección de crisis
+  - Análisis bulk
+  - **Endpoints**: 6
+
 ### ⏳ En Progreso
 
-- [ ] **Agente 4: Engagement Agent** (GPT-4 + Sentiment Analysis)
-- [ ] **Agente 5: Monitor Agent** (GPT-3.5 + Rule Engine)
+- [ ] **Agente 5: Monitor Agent** (GPT-3.5 + Rule Engine) ← PRÓXIMO = MVP!
 
 ### 📋 Pendientes
 
@@ -46,7 +53,7 @@
 
 ---
 
-## 🎯 Endpoints Operacionales: 16/75 (21%)
+## 🎯 Endpoints Operacionales: 22/75 (29%)
 
 ### Content API (5 endpoints)
 - ✅ POST /api/v1/content/generate-caption
@@ -69,6 +76,14 @@
 - ✅ POST /api/v1/analytics/forecast
 - ✅ POST /api/v1/analytics/dashboard-data
 - ✅ GET /api/v1/analytics/agent-status
+
+### Engagement API (6 endpoints)
+- ✅ POST /api/v1/engagement/respond-comment
+- ✅ POST /api/v1/engagement/handle-dm
+- ✅ POST /api/v1/engagement/analyze-comment
+- ✅ POST /api/v1/engagement/detect-crisis
+- ✅ POST /api/v1/engagement/bulk-analyze
+- ✅ GET /api/v1/engagement/agent-status
 
 ---
 
