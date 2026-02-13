@@ -31,7 +31,7 @@ class MonitorAgent(BaseAgent):
         super().__init__(
             agent_id=agent_id,
             role=AgentRole.MONITOR,
-            model="gpt-3.5-turbo",  # Lightweight for monitoring
+            model="gpt-4o-mini",  # Lightweight for monitoring
             tools=[
                 "health_checker",
                 "performance_tracker",
