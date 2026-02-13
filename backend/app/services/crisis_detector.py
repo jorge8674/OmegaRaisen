@@ -21,7 +21,7 @@ class CrisisSignals(BaseModel):
     reach_of_negative_content: int
     media_involvement: bool
     influencer_involvement: bool
-    platform: str
+    platform: str = "instagram"  # default value
 
 
 class CrisisImpactAssessment(BaseModel):
