@@ -53,7 +53,7 @@ class BulkAnalyzeRequest(BaseModel):
 class EngagementAPIResponse(BaseModel):
     """Generic engagement response"""
     success: bool
-    data: dict
+    data: Dict[str, Any]
     message: Optional[str] = None
 
 
