@@ -84,12 +84,17 @@ class HealthChecker:
             ServiceHealth status
         """
         from datetime import datetime
+        import httpx
         
         start_time = time.time()
         service_name = url.split('/')[-2] if '/' in url else url
         
         try:
-            # Simulate health check (in production, use httpx/requests)
+            # Make actual HTTP request
+            with httpx.Client(timeout=timeout) as client:
+                response = client.get(url)
+                response.raise_for_status()
+            
             response_time = (time.time() - start_time) * 1000
             
             # Determine status based on response time
@@ -108,11 +113,27 @@ class HealthChecker:
                 error=None
             )
             
-        except Exception as e:
+        except httpx.TimeoutException:
             return ServiceHealth(
                 service_name=service_name,
                 status="down",
                 response_time_ms=timeout * 1000,
+                last_checked=datetime.now().isoformat(),
+                error="Request timeout"
+            )
+        except httpx.HTTPStatusError as e:
+            return ServiceHealth(
+                service_name=service_name,
+                status="down",
+                response_time_ms=(time.time() - start_time) * 1000,
+                last_checked=datetime.now().isoformat(),
+                error=f"HTTP {e.response.status_code}"
+            )
+        except Exception as e:
+            return ServiceHealth(
+                service_name=service_name,
+                status="down",
+                response_time_ms=(time.time() - start_time) * 1000,
                 last_checked=datetime.now().isoformat(),
                 error=str(e)
             )

@@ -6,7 +6,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
-from app.api.routes import content, strategy, analytics, engagement, monitor
+from app.api.routes import (
+    content,
+    strategy,
+    analytics,
+    engagement,
+    monitor,
+    brand_voice,
+    competitive,
+    trends
+)
 
 # Create FastAPI application
 app = FastAPI(
@@ -32,6 +41,9 @@ app.include_router(strategy.router, prefix=settings.api_v1_prefix)
 app.include_router(analytics.router, prefix=settings.api_v1_prefix)
 app.include_router(engagement.router, prefix=settings.api_v1_prefix)
 app.include_router(monitor.router, prefix=settings.api_v1_prefix)
+app.include_router(brand_voice.router, prefix=settings.api_v1_prefix)
+app.include_router(competitive.router, prefix=settings.api_v1_prefix)
+app.include_router(trends.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

@@ -81,17 +81,37 @@ class MonitorAgent(BaseAgent):
     
     async def check_system_health(self) -> SystemHealthReport:
         """Check health of all system components"""
+        from app.config import settings
+        
+        # Base URL for internal service calls
+        base_url = f"http://localhost:{settings.port if hasattr(settings, 'port') else 8000}"
+        
         services = []
         agents_status = {}
         
         # Check each agent
         for agent_name, endpoint in self.agent_endpoints.items():
-            service_health = health_checker.check_service_health(
-                url=endpoint,
-                timeout=2.0
-            )
-            services.append(service_health)
-            agents_status[agent_name] = service_health.status
+            full_url = f"{base_url}{endpoint}"
+            
+            try:
+                service_health = health_checker.check_service_health(
+                    url=full_url,
+                    timeout=2.0
+                )
+                services.append(service_health)
+                agents_status[agent_name] = service_health.status
+            except Exception as e:
+                # If check fails, mark as down
+                from datetime import datetime
+                service_health = ServiceHealth(
+                    service_name=agent_name,
+                    status="down",
+                    response_time_ms=2000.0,
+                    last_checked=datetime.now().isoformat(),
+                    error=str(e)
+                )
+                services.append(service_health)
+                agents_status[agent_name] = "down"
         
         # Calculate overall status
         statuses = [s.status for s in services]
@@ -102,7 +122,7 @@ class MonitorAgent(BaseAgent):
         else:
             overall_status = "healthy"
         
-        # Calculate error rate (simulated for now)
+        # Calculate error rate
         error_rate = health_checker.calculate_error_rate(
             errors=sum(1 for s in services if s.status == "down"),
             total=len(services)

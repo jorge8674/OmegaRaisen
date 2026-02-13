@@ -11,15 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 class AgentRole(str, Enum):
-    """Agent role enumeration"""
+    """Agent role types"""
     CONTENT_CREATOR = "content_creator"
     STRATEGY = "strategy"
     ANALYTICS = "analytics"
     ENGAGEMENT = "engagement"
     MONITOR = "monitor"
-    COMPETITIVE_INTEL = "competitive_intel"
-    TREND_HUNTER = "trend_hunter"
     BRAND_VOICE = "brand_voice"
+    COMPETITIVE = "competitive"
+    TREND_HUNTER = "trend_hunter"
+    COMPETITIVE_INTEL = "competitive_intel"
     CRISIS_MANAGER = "crisis_manager"
     GROWTH_HACKER = "growth_hacker"
     REPORT_GENERATOR = "report_generator"
