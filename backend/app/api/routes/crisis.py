@@ -16,6 +16,7 @@ class AssessCrisisRequest(BaseModel):
     platform: str = Field(..., description="Platform where crisis occurred")
     negative_comment_percentage: float = Field(..., description="Percentage of negative comments")
     complaint_velocity: int = Field(..., description="Complaints per hour")
+    sentiment_drop: float = Field(default=0.0, description="Drop from sentiment baseline")
     reach_of_negative_content: int = Field(..., description="Reach of negative content")
     media_involvement: bool = Field(default=False, description="Media coverage involved")
     influencer_involvement: bool = Field(default=False, description="Influencer involvement")
@@ -73,6 +74,7 @@ async def assess_crisis(request: AssessCrisisRequest) -> CrisisAPIResponse:
                 "platform": request.platform,
                 "negative_comment_percentage": request.negative_comment_percentage,
                 "complaint_velocity": request.complaint_velocity,
+                "sentiment_drop": request.sentiment_drop,
                 "reach_of_negative_content": request.reach_of_negative_content,
                 "media_involvement": request.media_involvement,
                 "influencer_involvement": request.influencer_involvement
