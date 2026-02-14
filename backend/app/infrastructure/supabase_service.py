@@ -210,5 +210,19 @@ class SupabaseService:
             raise
 
 
-# Global instance
-supabase_service = SupabaseService()
+# Global instance (lazy initialization)
+supabase_service = None
+
+
+def get_supabase_service() -> SupabaseService:
+    """
+    Get Supabase service instance (lazy initialization)
+
+    This prevents Supabase initialization errors from crashing
+    the entire backend on startup. Errors only affect endpoints
+    that actually use Supabase.
+    """
+    global supabase_service
+    if supabase_service is None:
+        supabase_service = SupabaseService()
+    return supabase_service

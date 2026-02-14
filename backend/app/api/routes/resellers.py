@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
-from app.infrastructure.supabase_service import supabase_service
+from app.infrastructure.supabase_service import get_supabase_service
 import logging
 
 router = APIRouter(prefix="/resellers", tags=["resellers"])
@@ -155,14 +155,16 @@ async def create_reseller(request: CreateResellerRequest) -> APIResponse:
     Returns newly created reseller object
     """
     try:
+        service = get_supabase_service()
+
         # Check if slug already exists
-        existing = await supabase_service.get_reseller_by_slug(request.slug)
+        existing = await service.get_reseller_by_slug(request.slug)
         if existing:
             raise HTTPException(status_code=400, detail=f"Slug '{request.slug}' already exists")
 
         # Create reseller
         reseller_data = request.model_dump()
-        reseller = await supabase_service.create_reseller(reseller_data)
+        reseller = await service.create_reseller(reseller_data)
 
         # Create default branding
         branding_data = {
@@ -172,7 +174,7 @@ async def create_reseller(request: CreateResellerRequest) -> APIResponse:
             "badge_text": "Boutique Creative Agency",
             "hero_cta_text": "Comenzar"
         }
-        await supabase_service.create_branding(branding_data)
+        await service.create_branding(branding_data)
 
         return APIResponse(
             success=True,
@@ -199,16 +201,18 @@ async def get_reseller_dashboard(reseller_id: str) -> APIResponse:
     - Active/suspended counts
     """
     try:
+        service = get_supabase_service()
+
         # Get reseller
-        reseller = await supabase_service.get_reseller(reseller_id)
+        reseller = await service.get_reseller(reseller_id)
         if not reseller:
             raise HTTPException(status_code=404, detail="Reseller not found")
 
         # Get clients
-        clients = await supabase_service.get_reseller_clients(reseller_id)
+        clients = await service.get_reseller_clients(reseller_id)
 
         # Get agents
-        agents = await supabase_service.get_reseller_agents(reseller_id)
+        agents = await service.get_reseller_agents(reseller_id)
 
         # Calculate metrics
         total_revenue = reseller.get("monthly_revenue_reported", 0)
@@ -246,7 +250,9 @@ async def get_all_resellers() -> APIResponse:
     Returns list of all resellers in system
     """
     try:
-        resellers = await supabase_service.get_all_resellers()
+        service = get_supabase_service()
+
+        resellers = await service.get_all_resellers()
 
         return APIResponse(
             success=True,
@@ -270,8 +276,10 @@ async def update_reseller_status(
     - **suspend_switch**: Manual suspension switch
     """
     try:
+        service = get_supabase_service()
+
         # Get current reseller
-        reseller = await supabase_service.get_reseller(reseller_id)
+        reseller = await service.get_reseller(reseller_id)
         if not reseller:
             raise HTTPException(status_code=404, detail="Reseller not found")
 
@@ -283,7 +291,7 @@ async def update_reseller_status(
             update_data["suspend_switch"] = request.suspend_switch
 
         # Update reseller
-        updated_reseller = await supabase_service.update_reseller(reseller_id, update_data)
+        updated_reseller = await service.update_reseller(reseller_id, update_data)
 
         return APIResponse(
             success=True,
@@ -310,14 +318,16 @@ async def update_branding(
     Returns updated branding object
     """
     try:
+        service = get_supabase_service()
+
         # Verify reseller exists
-        reseller = await supabase_service.get_reseller(reseller_id)
+        reseller = await service.get_reseller(reseller_id)
         if not reseller:
             raise HTTPException(status_code=404, detail="Reseller not found")
 
         # Update branding
         branding_data = request.model_dump(exclude_none=True)
-        branding = await supabase_service.update_branding(reseller_id, branding_data)
+        branding = await service.update_branding(reseller_id, branding_data)
 
         return APIResponse(
             success=True,
@@ -339,7 +349,9 @@ async def get_branding(reseller_id: str) -> APIResponse:
     Returns complete branding object
     """
     try:
-        branding = await supabase_service.get_branding(reseller_id)
+        service = get_supabase_service()
+
+        branding = await service.get_branding(reseller_id)
         if not branding:
             raise HTTPException(status_code=404, detail="Branding not found")
 
@@ -363,7 +375,9 @@ async def get_reseller_clients(reseller_id: str) -> APIResponse:
     Returns list of clients with full data
     """
     try:
-        clients = await supabase_service.get_reseller_clients(reseller_id)
+        service = get_supabase_service()
+
+        clients = await service.get_reseller_clients(reseller_id)
 
         return APIResponse(
             success=True,
@@ -386,13 +400,15 @@ async def add_client_to_reseller(
     - **client_id**: Client UUID to assign
     """
     try:
+        service = get_supabase_service()
+
         # Verify reseller exists
-        reseller = await supabase_service.get_reseller(reseller_id)
+        reseller = await service.get_reseller(reseller_id)
         if not reseller:
             raise HTTPException(status_code=404, detail="Reseller not found")
 
         # Assign client
-        client = await supabase_service.assign_client_to_reseller(
+        client = await service.assign_client_to_reseller(
             request.client_id,
             reseller_id
         )
@@ -422,13 +438,15 @@ async def get_branding_by_slug(slug: str) -> APIResponse:
     Returns complete branding configuration
     """
     try:
+        service = get_supabase_service()
+
         # Get reseller by slug
-        reseller = await supabase_service.get_reseller_by_slug(slug)
+        reseller = await service.get_reseller_by_slug(slug)
         if not reseller:
             raise HTTPException(status_code=404, detail="Reseller not found")
 
         # Get branding
-        branding = await supabase_service.get_branding(reseller["id"])
+        branding = await service.get_branding(reseller["id"])
         if not branding:
             raise HTTPException(status_code=404, detail="Branding not configured")
 
@@ -469,8 +487,10 @@ async def upload_hero_media(
     Returns public URL and media type
     """
     try:
+        service = get_supabase_service()
+
         # Verify reseller exists
-        reseller = await supabase_service.get_reseller(reseller_id)
+        reseller = await service.get_reseller(reseller_id)
         if not reseller:
             raise HTTPException(status_code=404, detail="Reseller not found")
 
@@ -502,7 +522,7 @@ async def upload_hero_media(
         file_path = f"{reseller['slug']}/hero.{file_extension}"
 
         # Upload to Supabase Storage
-        public_url = await supabase_service.upload_media(
+        public_url = await service.upload_media(
             bucket="reseller-media",
             file_path=file_path,
             file_data=file_data,
@@ -510,7 +530,7 @@ async def upload_hero_media(
         )
 
         # Update branding with new media URL
-        await supabase_service.update_branding(reseller_id, {
+        await service.update_branding(reseller_id, {
             "hero_media_url": public_url,
             "hero_media_type": media_type
         })
