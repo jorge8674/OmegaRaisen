@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from app.infrastructure.supabase_service import get_supabase_service
-from app.config import get_settings
+from app.config import settings
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
@@ -14,7 +14,6 @@ import logging
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 # JWT Secret from config (fallback for development)
 JWT_SECRET = getattr(settings, 'jwt_secret_key', 'omega-raisen-jwt-secret-2026-CHANGE-IN-PRODUCTION')
