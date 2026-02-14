@@ -231,8 +231,23 @@ async def create_reseller(request: CreateResellerRequest) -> APIResponse:
         }
         await service.create_branding(branding_data)
 
-        # Create user_role for automatic login
+        # Auto-create password with bcrypt
+        import bcrypt
         from uuid import uuid4
+        temp_password = "TempAccess2026!"
+        password_hash = bcrypt.hashpw(temp_password.encode('utf-8'), bcrypt.gensalt())
+
+        try:
+            # Insert password hash into user_passwords table
+            service.client.table("user_passwords").upsert({
+                "email": request.owner_email,
+                "password_hash": password_hash.decode('utf-8')
+            }, on_conflict="email").execute()
+            logger.info(f"Password created for reseller: {request.owner_email}")
+        except Exception as pwd_error:
+            logger.warning(f"Could not create password (may already exist): {pwd_error}")
+
+        # Create user_role for automatic login
         user_role_data = {
             "user_id": str(uuid4()),
             "email": request.owner_email,
@@ -245,7 +260,11 @@ async def create_reseller(request: CreateResellerRequest) -> APIResponse:
 
         return APIResponse(
             success=True,
-            data=reseller,
+            data={
+                **reseller,
+                "temp_password": temp_password,
+                "note": "Temporary password created. User should change it after first login."
+            },
             message=f"Reseller '{request.agency_name}' created successfully"
         )
     except HTTPException:
