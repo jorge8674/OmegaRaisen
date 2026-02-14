@@ -17,8 +17,8 @@ class SupabaseService:
         """Initialize Supabase client"""
         try:
             self.client: Client = create_client(
-                settings.supabase_url,
-                settings.supabase_service_role_key  # Admin access
+                supabase_url=settings.supabase_url,
+                supabase_key=settings.supabase_service_role_key  # Admin access
             )
             logger.info("Supabase client initialized successfully")
         except Exception as e:
