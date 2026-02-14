@@ -54,24 +54,51 @@ class UpdateResellerStatusRequest(BaseModel):
 
 class BrandingRequest(BaseModel):
     """Request to create/update branding"""
+    # Basic info
+    agency_name: Optional[str] = None
     logo_url: Optional[str] = None
+
+    # Colors
+    primary_color: str = Field(default="38 85% 55%", description="HSL or hex color")
+    secondary_color: str = Field(default="225 12% 14%", description="HSL or hex color")
+
+    # Hero section
+    hero_type: Optional[str] = Field(None, description="'image' or 'video'")
     hero_media_url: Optional[str] = None
-    hero_media_type: Optional[str] = Field(None, description="'video' or 'image'")
-    primary_color: str = Field(default="38 85% 55%", description="HSL color")
-    secondary_color: str = Field(default="225 12% 14%", description="HSL color")
-    agency_tagline: Optional[str] = None
-    badge_text: str = Field(default="Boutique Creative Agency")
+    hero_title: Optional[str] = None
+    hero_subtitle: Optional[str] = None
     hero_cta_text: str = Field(default="Comenzar")
-    pain_items: List[str] = Field(default_factory=list)
-    solution_items: List[str] = Field(default_factory=list)
-    services: List[Dict[str, str]] = Field(default_factory=list)
-    metrics: List[Dict[str, Any]] = Field(default_factory=list)
-    process_steps: List[Dict[str, str]] = Field(default_factory=list)
-    testimonials: List[Dict[str, str]] = Field(default_factory=list)
+    hero_cta_url: Optional[str] = None
+
+    # Content sections (as objects)
+    pain_section: Optional[Dict[str, Any]] = None
+    solutions_section: Optional[Dict[str, Any]] = None
+    services_section: Optional[Dict[str, Any]] = None
+    metrics_section: Optional[Dict[str, Any]] = None
+    process_section: Optional[Dict[str, Any]] = None
+    testimonials_section: Optional[Dict[str, Any]] = None
+    client_logos_section: Optional[Dict[str, Any]] = None
+
+    # Contact
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+
+    # Footer
+    footer_text: Optional[str] = None
+    social_links: Optional[Dict[str, Any]] = None
+
+    # Legacy fields (keep for backward compatibility)
+    agency_tagline: Optional[str] = None
+    badge_text: Optional[str] = None
+    pain_items: Optional[List[str]] = None
+    solution_items: Optional[List[str]] = None
+    services: Optional[List[Dict[str, str]]] = None
+    metrics: Optional[List[Dict[str, Any]]] = None
+    process_steps: Optional[List[Dict[str, str]]] = None
+    testimonials: Optional[List[Dict[str, str]]] = None
     footer_email: Optional[str] = None
     footer_phone: Optional[str] = None
-    social_links: List[Dict[str, str]] = Field(default_factory=list)
-    legal_pages: List[Dict[str, str]] = Field(default_factory=list)
+    legal_pages: Optional[List[Dict[str, str]]] = None
 
 
 class BrandingResponse(BaseModel):
@@ -358,14 +385,39 @@ async def get_branding(reseller_id: str) -> APIResponse:
     """
     Get reseller branding configuration
 
-    Returns complete branding object
+    Returns complete branding object (or defaults if not configured)
     """
     try:
         service = get_supabase_service()
 
         branding = await service.get_branding(reseller_id)
+
+        # If no branding exists, return defaults instead of 404
         if not branding:
-            raise HTTPException(status_code=404, detail="Branding not found")
+            branding = {
+                "reseller_id": reseller_id,
+                "primary_color": "38 85% 55%",
+                "secondary_color": "225 12% 14%",
+                "hero_cta_text": "Comenzar",
+                "agency_name": None,
+                "logo_url": None,
+                "hero_type": None,
+                "hero_media_url": None,
+                "hero_title": None,
+                "hero_subtitle": None,
+                "hero_cta_url": None,
+                "pain_section": None,
+                "solutions_section": None,
+                "services_section": None,
+                "metrics_section": None,
+                "process_section": None,
+                "testimonials_section": None,
+                "client_logos_section": None,
+                "contact_email": None,
+                "contact_phone": None,
+                "footer_text": None,
+                "social_links": None
+            }
 
         return APIResponse(
             success=True,
