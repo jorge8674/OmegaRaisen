@@ -199,6 +199,24 @@ class SupabaseService:
             logger.error(f"Error uploading media: {e}")
             raise
 
+    async def create_lead(self, data: dict) -> dict:
+        """
+        Create new lead from landing page contact form
+
+        Args:
+            data: Lead data (name, email, phone, message, reseller_id)
+
+        Returns:
+            Created lead object
+        """
+        try:
+            response = self.client.table("leads").insert(data).execute()
+            logger.info(f"Lead created for reseller {data.get('reseller_id')}")
+            return response.data[0] if response.data else {}
+        except Exception as e:
+            logger.error(f"Error creating lead: {e}")
+            raise
+
     async def delete_media(self, bucket: str, file_path: str) -> bool:
         """Delete media file from storage"""
         try:
