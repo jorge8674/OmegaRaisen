@@ -14,6 +14,25 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════
+
+def sanitize_json_field(val: Any) -> Dict[str, Any]:
+    """
+    Sanitize JSONB fields to ensure they're always dicts, never lists.
+    Prevents frontend errors when Supabase returns [] instead of {}.
+    """
+    if isinstance(val, list):
+        return {}
+    if val is None:
+        return {}
+    if isinstance(val, dict):
+        return val
+    # If it's some other type, convert to empty dict
+    return {}
+
+
+# ═══════════════════════════════════════════════════════════════
 # REQUEST/RESPONSE MODELS
 # ═══════════════════════════════════════════════════════════════
 
@@ -406,18 +425,28 @@ async def get_branding(reseller_id: str) -> APIResponse:
                 "hero_title": None,
                 "hero_subtitle": None,
                 "hero_cta_url": None,
-                "pain_section": None,
-                "solutions_section": None,
-                "services_section": None,
-                "metrics_section": None,
-                "process_section": None,
-                "testimonials_section": None,
-                "client_logos_section": None,
+                "pain_section": {},
+                "solutions_section": {},
+                "services_section": {},
+                "metrics_section": {},
+                "process_section": {},
+                "testimonials_section": {},
+                "client_logos_section": {},
                 "contact_email": None,
                 "contact_phone": None,
                 "footer_text": None,
-                "social_links": None
+                "social_links": {}
             }
+        else:
+            # Sanitize JSONB fields to ensure they're always dicts, never lists
+            branding["pain_section"] = sanitize_json_field(branding.get("pain_section"))
+            branding["solutions_section"] = sanitize_json_field(branding.get("solutions_section"))
+            branding["services_section"] = sanitize_json_field(branding.get("services_section"))
+            branding["metrics_section"] = sanitize_json_field(branding.get("metrics_section"))
+            branding["process_section"] = sanitize_json_field(branding.get("process_section"))
+            branding["testimonials_section"] = sanitize_json_field(branding.get("testimonials_section"))
+            branding["client_logos_section"] = sanitize_json_field(branding.get("client_logos_section"))
+            branding["social_links"] = sanitize_json_field(branding.get("social_links"))
 
         return APIResponse(
             success=True,
