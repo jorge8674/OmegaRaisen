@@ -22,7 +22,8 @@ from app.api.routes import (
     video_production,
     scheduling,
     ab_testing,
-    orchestrator
+    orchestrator,
+    resellers
 )
 
 # Create FastAPI application
@@ -65,6 +66,9 @@ app.include_router(ab_testing.router, prefix=settings.api_v1_prefix, tags=["A/B 
 
 # Master Orchestrator (15)
 app.include_router(orchestrator.router, prefix=settings.api_v1_prefix, tags=["Orchestrator ⭐"])
+
+# Multi-Tenant Infrastructure
+app.include_router(resellers.router, prefix=settings.api_v1_prefix, tags=["Resellers 🏢"])
 
 
 @app.get("/")

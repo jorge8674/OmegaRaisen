@@ -10,6 +10,7 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 pymongo==4.6.1
 alembic==1.13.1
+supabase==2.3.0
 
 # AI/ML
 openai==1.10.0
