@@ -445,9 +445,22 @@ async def get_branding(reseller_id: str) -> APIResponse:
     Get reseller branding configuration
 
     Returns complete branding object (or defaults if not configured)
+    Includes reseller slug for frontend routing
     """
     try:
         service = get_supabase_service()
+
+        # Get reseller to extract slug
+        try:
+            reseller_response = service.client.table("resellers")\
+                .select("slug")\
+                .eq("id", reseller_id)\
+                .execute()
+
+            slug = reseller_response.data[0].get("slug") if reseller_response.data else None
+        except Exception as slug_error:
+            logger.warning(f"Could not fetch slug for reseller {reseller_id}: {slug_error}")
+            slug = None
 
         branding = await service.get_branding(reseller_id)
 
@@ -455,6 +468,7 @@ async def get_branding(reseller_id: str) -> APIResponse:
         if not branding:
             branding = {
                 "reseller_id": reseller_id,
+                "slug": slug,
                 "primary_color": "38 85% 55%",
                 "secondary_color": "225 12% 14%",
                 "hero_cta_text": "Comenzar",
@@ -478,6 +492,9 @@ async def get_branding(reseller_id: str) -> APIResponse:
                 "social_links": {}
             }
         else:
+            # Add slug to branding data
+            branding["slug"] = slug
+
             # Sanitize JSONB fields to ensure they're always dicts, never lists
             branding["pain_section"] = sanitize_json_field(branding.get("pain_section"))
             branding["solutions_section"] = sanitize_json_field(branding.get("solutions_section"))
