@@ -247,17 +247,29 @@ async def get_all_resellers() -> APIResponse:
     """
     Get all resellers (OMEGA admin only)
 
-    Returns list of all resellers in system
+    Returns list of all resellers with status counters
     """
     try:
         service = get_supabase_service()
 
         resellers = await service.get_all_resellers()
 
+        # Calculate status counters
+        total = len(resellers)
+        active = len([r for r in resellers if r.get("status") == "active"])
+        suspended = len([r for r in resellers if r.get("status") == "suspended"])
+        with_mora = len([r for r in resellers if r.get("days_overdue", 0) > 0])
+
         return APIResponse(
             success=True,
-            data={"resellers": resellers, "count": len(resellers)},
-            message=f"Found {len(resellers)} resellers"
+            data={
+                "resellers": resellers,
+                "total": total,
+                "active": active,
+                "suspended": suspended,
+                "with_mora": with_mora
+            },
+            message=f"Found {total} resellers"
         )
     except Exception as e:
         logger.error(f"Error getting all resellers: {e}")
