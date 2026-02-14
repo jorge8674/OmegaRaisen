@@ -231,6 +231,18 @@ async def create_reseller(request: CreateResellerRequest) -> APIResponse:
         }
         await service.create_branding(branding_data)
 
+        # Create user_role for automatic login
+        from uuid import uuid4
+        user_role_data = {
+            "user_id": str(uuid4()),
+            "email": request.owner_email,
+            "role": "reseller",
+            "reseller_id": reseller["id"],
+            "is_active": True
+        }
+        await service.create_user_role(user_role_data)
+        logger.info(f"User role created for reseller: {request.owner_email}")
+
         return APIResponse(
             success=True,
             data=reseller,

@@ -217,6 +217,51 @@ class SupabaseService:
             logger.error(f"Error creating lead: {e}")
             raise
 
+    # ═══════════════════════════════════════════════════════════════
+    # USER ROLES & AUTH
+    # ═══════════════════════════════════════════════════════════════
+
+    async def get_user_by_email(self, email: str) -> dict:
+        """
+        Get user role by email
+
+        Args:
+            email: User email
+
+        Returns:
+            User role object or None
+        """
+        try:
+            response = self.client.table("user_roles")\
+                .select("*")\
+                .eq("email", email)\
+                .execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error getting user by email: {e}")
+            raise
+
+    async def create_user_role(self, data: dict) -> dict:
+        """
+        Create user role (auto-created when reseller is created)
+
+        Args:
+            data: User role data (email, role, reseller_id, client_id)
+
+        Returns:
+            Created user role object
+        """
+        try:
+            # Use upsert to handle conflicts
+            response = self.client.table("user_roles")\
+                .upsert(data, on_conflict="email")\
+                .execute()
+            logger.info(f"User role created/updated: {data.get('email')}")
+            return response.data[0] if response.data else {}
+        except Exception as e:
+            logger.error(f"Error creating user role: {e}")
+            raise
+
     async def delete_media(self, bucket: str, file_path: str) -> bool:
         """Delete media file from storage"""
         try:
