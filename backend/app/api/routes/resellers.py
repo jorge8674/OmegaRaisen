@@ -83,6 +83,7 @@ class BrandingRequest(BaseModel):
 
     # Hero section
     hero_type: Optional[str] = Field(None, description="'image' or 'video'")
+    hero_media_type: Optional[str] = Field(None, description="'image' or 'video' (alias for hero_type)")
     hero_media_url: Optional[str] = None
     hero_title: Optional[str] = None
     hero_subtitle: Optional[str] = None
@@ -158,6 +159,15 @@ class CreateLeadRequest(BaseModel):
     phone: Optional[str] = Field(None, description="Contact phone", max_length=50)
     message: Optional[str] = Field(None, description="Contact message", max_length=2000)
     reseller_id: str = Field(..., description="Reseller UUID")
+
+
+class CreateLeadBySlugRequest(BaseModel):
+    """Request to create lead from public landing page (by slug)"""
+    name: str = Field(..., description="Contact name", min_length=2, max_length=255)
+    email: EmailStr = Field(..., description="Contact email")
+    phone: Optional[str] = Field(None, description="Contact phone", max_length=50)
+    message: Optional[str] = Field(None, description="Contact message", max_length=2000)
+    source: str = Field(default="landing_page", description="Lead source")
 
 
 class ClientSummary(BaseModel):
@@ -798,4 +808,63 @@ async def create_lead(
         raise
     except Exception as e:
         logger.error(f"Error creating lead: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/slug/{slug}/lead", response_model=APIResponse)
+async def create_lead_by_slug(
+    slug: str,
+    request: CreateLeadBySlugRequest
+) -> APIResponse:
+    """
+    Create lead from public landing page using slug (PUBLIC endpoint)
+
+    Used by white-label landing pages to submit contact forms
+    The reseller_id is automatically inferred from the slug
+
+    Accepts:
+    - name: Contact name (required)
+    - email: Contact email (required)
+    - phone: Contact phone (optional)
+    - message: Contact message (optional)
+    - source: Lead source (default: "landing_page")
+
+    Returns:
+    - 200: Lead created successfully
+    - 404: Agency not found
+    - 422: Validation error
+    """
+    try:
+        service = get_supabase_service()
+
+        # Get reseller by slug
+        reseller = await service.get_reseller_by_slug(slug)
+        if not reseller:
+            return APIResponse(
+                success=False,
+                data={"error": "not_found"},
+                message="Agency not found"
+            )
+
+        # Create lead
+        lead_data = {
+            "reseller_id": reseller["id"],
+            "name": request.name,
+            "email": request.email,
+            "phone": request.phone,
+            "message": request.message,
+            "source": request.source
+        }
+
+        await service.create_lead(lead_data)
+
+        return APIResponse(
+            success=True,
+            data={},
+            message="Lead received successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating lead by slug: {e}")
         raise HTTPException(status_code=500, detail=str(e))
