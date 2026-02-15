@@ -202,11 +202,22 @@ async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Hea
             client_id = session.get("metadata", {}).get("client_id")
             plan = session.get("metadata", {}).get("plan")
             subscription_id = session.get("subscription")
+            customer_id = session.get("customer")
 
             logger.info(f"Checkout completed - Client: {client_id}, Plan: {plan}, Subscription: {subscription_id}")
 
-            # TODO: Update client subscription in database
-            # await update_client_subscription(client_id, plan, subscription_id, "active")
+            # Update client subscription in database
+            if client_id and plan and subscription_id:
+                from app.infrastructure.supabase_service import get_supabase_service
+                supabase = get_supabase_service()
+                await supabase.update_client_subscription(
+                    client_id=client_id,
+                    stripe_customer_id=customer_id,
+                    stripe_subscription_id=subscription_id,
+                    plan=plan,
+                    subscription_status="active"
+                )
+                logger.info(f"Client {client_id} subscription activated in database")
 
         elif event_type == "customer.subscription.updated":
             subscription = event["data"]["object"]
@@ -224,8 +235,14 @@ async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Hea
 
             logger.info(f"Subscription deleted - ID: {subscription_id}")
 
-            # TODO: Cancel subscription in database
-            # await cancel_subscription_in_db(subscription_id)
+            # Cancel subscription in database
+            from app.infrastructure.supabase_service import get_supabase_service
+            supabase = get_supabase_service()
+            result = await supabase.cancel_client_subscription(subscription_id)
+            if result:
+                logger.info(f"Subscription {subscription_id} cancelled in database")
+            else:
+                logger.warning(f"No client found with subscription {subscription_id}")
 
         else:
             logger.info(f"Unhandled event type: {event_type}")
@@ -247,40 +264,49 @@ async def cancel_subscription(request: CancelSubscriptionRequest) -> Subscriptio
     - **client_id**: Client UUID
 
     Returns:
-    - 200: Subscription cancelled
+    - 200: Subscription cancelled (will cancel at period end)
     - 404: Subscription not found
     - 500: Stripe API error
-
-    TODO: Implement database lookup to get subscription_id from client_id
     """
     try:
-        # TODO: Get subscription_id from database using client_id
-        # subscription_id = await get_subscription_id(request.client_id)
+        # Get subscription_id from database using client_id
+        from app.infrastructure.supabase_service import get_supabase_service
+        supabase = get_supabase_service()
+        subscription_data = await supabase.get_client_subscription(request.client_id)
 
-        # For now, return not implemented
-        return SubscriptionStatusResponse(
-            success=False,
-            error="not_implemented",
-            message="Subscription cancellation not yet implemented. Need to retrieve subscription_id from database."
+        if not subscription_data:
+            return SubscriptionStatusResponse(
+                success=False,
+                error="not_found",
+                message="No client found with this ID"
+            )
+
+        stripe_subscription_id = subscription_data.get("stripe_subscription_id")
+        if not stripe_subscription_id:
+            return SubscriptionStatusResponse(
+                success=False,
+                error="no_subscription",
+                message="Client has no active Stripe subscription to cancel"
+            )
+
+        # Cancel subscription in Stripe (at period end)
+        subscription = stripe.Subscription.modify(
+            stripe_subscription_id,
+            cancel_at_period_end=True
         )
 
-        # When implemented:
-        # subscription = stripe.Subscription.modify(
-        #     subscription_id,
-        #     cancel_at_period_end=True
-        # )
-        #
-        # logger.info(f"Subscription cancelled for client {request.client_id}")
-        #
-        # return SubscriptionStatusResponse(
-        #     success=True,
-        #     data={
-        #         "subscription_id": subscription_id,
-        #         "status": "cancelled",
-        #         "cancel_at": subscription.cancel_at
-        #     },
-        #     message="Subscription will be cancelled at period end"
-        # )
+        logger.info(f"Subscription {stripe_subscription_id} will cancel at period end for client {request.client_id}")
+
+        return SubscriptionStatusResponse(
+            success=True,
+            data={
+                "subscription_id": stripe_subscription_id,
+                "status": "cancelling",
+                "cancel_at": subscription.cancel_at,
+                "cancel_at_period_end": subscription.cancel_at_period_end
+            },
+            message="Subscription will be cancelled at period end"
+        )
 
     except stripe.error.StripeError as e:
         logger.error(f"Stripe error cancelling subscription: {e}")
@@ -308,43 +334,53 @@ async def get_subscription_status(client_id: str) -> SubscriptionStatusResponse:
     Returns:
     - 200: Subscription status
     - 404: Subscription not found
-
-    TODO: Implement database lookup to get subscription data
+    - 500: Stripe API error
     """
     try:
-        # TODO: Get subscription from database using client_id
-        # subscription_data = await get_client_subscription(client_id)
+        # Get subscription from database using client_id
+        from app.infrastructure.supabase_service import get_supabase_service
+        supabase = get_supabase_service()
+        subscription_data = await supabase.get_client_subscription(client_id)
 
-        # For now, return not implemented
+        if not subscription_data:
+            return SubscriptionStatusResponse(
+                success=False,
+                error="not_found",
+                message="No subscription found for this client"
+            )
+
+        # Check if client has a Stripe subscription
+        stripe_subscription_id = subscription_data.get("stripe_subscription_id")
+        if not stripe_subscription_id:
+            # Return local data if no Stripe subscription
+            return SubscriptionStatusResponse(
+                success=True,
+                data={
+                    "client_id": client_id,
+                    "subscription_id": None,
+                    "status": subscription_data.get("subscription_status", "inactive"),
+                    "plan": subscription_data.get("plan"),
+                    "trial_active": subscription_data.get("trial_active", False)
+                },
+                message="Client exists but has no active Stripe subscription"
+            )
+
+        # Get live status from Stripe
+        subscription = stripe.Subscription.retrieve(stripe_subscription_id)
+
         return SubscriptionStatusResponse(
-            success=False,
-            error="not_implemented",
-            message="Subscription status lookup not yet implemented. Need to retrieve from database."
+            success=True,
+            data={
+                "client_id": client_id,
+                "subscription_id": subscription.id,
+                "status": subscription.status,
+                "plan": subscription_data.get("plan"),
+                "current_period_end": subscription.current_period_end,
+                "cancel_at_period_end": subscription.cancel_at_period_end,
+                "trial_active": subscription_data.get("trial_active", False)
+            },
+            message="Subscription status retrieved"
         )
-
-        # When implemented:
-        # if not subscription_data:
-        #     return SubscriptionStatusResponse(
-        #         success=False,
-        #         error="not_found",
-        #         message="No subscription found for this client"
-        #     )
-        #
-        # # Get live status from Stripe
-        # subscription = stripe.Subscription.retrieve(subscription_data["subscription_id"])
-        #
-        # return SubscriptionStatusResponse(
-        #     success=True,
-        #     data={
-        #         "client_id": client_id,
-        #         "subscription_id": subscription.id,
-        #         "status": subscription.status,
-        #         "plan": subscription_data["plan"],
-        #         "current_period_end": subscription.current_period_end,
-        #         "cancel_at_period_end": subscription.cancel_at_period_end
-        #     },
-        #     message="Subscription status retrieved"
-        # )
 
     except stripe.error.StripeError as e:
         logger.error(f"Stripe error getting subscription: {e}")

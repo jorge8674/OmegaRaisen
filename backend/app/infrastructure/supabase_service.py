@@ -394,6 +394,116 @@ class SupabaseService:
             logger.error(f"Error deleting media: {e}")
             raise
 
+    # ═══════════════════════════════════════════════════════════════
+    # STRIPE SUBSCRIPTION MANAGEMENT
+    # ═══════════════════════════════════════════════════════════════
+
+    async def update_client_subscription(
+        self,
+        client_id: str,
+        stripe_customer_id: str,
+        stripe_subscription_id: str,
+        plan: str,
+        subscription_status: str = "active"
+    ) -> Dict[str, Any]:
+        """
+        Update client with Stripe subscription data after checkout
+
+        Args:
+            client_id: Client UUID
+            stripe_customer_id: Stripe customer ID
+            stripe_subscription_id: Stripe subscription ID
+            plan: Subscription plan (basic/pro/enterprise)
+            subscription_status: Subscription status (default: active)
+
+        Returns:
+            Updated client object
+        """
+        try:
+            update_data = {
+                "stripe_customer_id": stripe_customer_id,
+                "stripe_subscription_id": stripe_subscription_id,
+                "plan": plan,
+                "subscription_status": subscription_status,
+                "trial_active": False
+            }
+
+            response = self.client.table("clients").update(update_data).eq("id", client_id).execute()
+            logger.info(f"Client {client_id} subscription updated: {plan} - {subscription_status}")
+            return response.data[0] if response.data else {}
+        except Exception as e:
+            logger.error(f"Error updating client subscription: {e}")
+            raise
+
+    async def cancel_client_subscription(self, stripe_subscription_id: str) -> Dict[str, Any]:
+        """
+        Mark client subscription as cancelled in database
+
+        Args:
+            stripe_subscription_id: Stripe subscription ID
+
+        Returns:
+            Updated client object or None
+        """
+        try:
+            update_data = {
+                "subscription_status": "cancelled",
+                "plan": None
+            }
+
+            response = self.client.table("clients")\
+                .update(update_data)\
+                .eq("stripe_subscription_id", stripe_subscription_id)\
+                .execute()
+
+            logger.info(f"Subscription {stripe_subscription_id} marked as cancelled")
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error cancelling client subscription: {e}")
+            raise
+
+    async def get_client_subscription(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get client subscription data from database
+
+        Args:
+            client_id: Client UUID
+
+        Returns:
+            Client subscription data or None
+        """
+        try:
+            response = self.client.table("clients")\
+                .select("id, stripe_customer_id, stripe_subscription_id, plan, subscription_status, trial_active")\
+                .eq("id", client_id)\
+                .execute()
+
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error getting client subscription: {e}")
+            raise
+
+    async def get_client_by_stripe_subscription(self, stripe_subscription_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get client by Stripe subscription ID
+
+        Args:
+            stripe_subscription_id: Stripe subscription ID
+
+        Returns:
+            Client data or None
+        """
+        try:
+            response = self.client.table("clients")\
+                .select("*")\
+                .eq("stripe_subscription_id", stripe_subscription_id)\
+                .execute()
+
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error getting client by stripe subscription: {e}")
+            raise
+
 
 # Global instance (lazy initialization)
 supabase_service = None
