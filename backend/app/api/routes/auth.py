@@ -242,14 +242,14 @@ async def login(request: LoginRequest) -> APIResponse:
     try:
         service = get_supabase_service()
 
-        # 1. Get password hash from database
+        # 1. Get password hash from clients table
         try:
-            pwd_response = service.client.table("user_passwords")\
-                .select("password_hash")\
+            client_response = service.client.table("clients")\
+                .select("id, email, password_hash, role, status, reseller_id")\
                 .eq("email", request.email)\
                 .execute()
 
-            if not pwd_response.data or len(pwd_response.data) == 0:
+            if not client_response.data or len(client_response.data) == 0:
                 logger.warning(f"Login attempt for non-existent email: {request.email}")
                 return APIResponse(
                     success=False,
@@ -257,9 +257,18 @@ async def login(request: LoginRequest) -> APIResponse:
                     message="Invalid credentials"
                 )
 
-            stored_hash = pwd_response.data[0]["password_hash"]
+            client = client_response.data[0]
+            stored_hash = client.get("password_hash")
+
+            if not stored_hash:
+                logger.warning(f"Client {request.email} has no password hash")
+                return APIResponse(
+                    success=False,
+                    error="unauthorized",
+                    message="Invalid credentials"
+                )
         except Exception as db_error:
-            logger.error(f"Database error getting password: {db_error}")
+            logger.error(f"Database error getting client: {db_error}")
             return APIResponse(
                 success=False,
                 error="server_error",
@@ -288,34 +297,32 @@ async def login(request: LoginRequest) -> APIResponse:
                 message="Authentication error"
             )
 
-        # 3. Get user role from database
-        user_role = await service.get_user_by_email(request.email)
-
-        if not user_role:
-            logger.warning(f"User {request.email} has password but no role")
-            return APIResponse(
-                success=False,
-                error="no_role",
-                message="User has no role assigned"
-            )
-
-        # 4. Check if account is active
-        if not user_role.get("is_active", True):
+        # 3. Check if account is active
+        if client.get("status") != "active":
             return APIResponse(
                 success=False,
                 error="account_disabled",
                 message="Account is disabled"
             )
 
+        # 4. Check if client has role
+        if not client.get("role"):
+            logger.warning(f"Client {request.email} has no role assigned")
+            return APIResponse(
+                success=False,
+                error="no_role",
+                message="User has no role assigned"
+            )
+
         # 5. Get redirect URL based on role
-        redirect_to = get_redirect_by_role(user_role["role"])
+        redirect_to = get_redirect_by_role(client["role"])
 
         # 6. Generate JWT token
         payload = {
-            "email": user_role["email"],
-            "role": user_role["role"],
-            "reseller_id": user_role.get("reseller_id"),
-            "client_id": user_role.get("client_id"),
+            "email": client["email"],
+            "role": client["role"],
+            "reseller_id": client.get("reseller_id"),
+            "client_id": client.get("id"),
             "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRATION_DAYS),
             "iat": datetime.utcnow()
         }
@@ -324,10 +331,10 @@ async def login(request: LoginRequest) -> APIResponse:
 
         # 7. Prepare response data
         login_data = {
-            "email": user_role["email"],
-            "role": user_role["role"],
-            "reseller_id": user_role.get("reseller_id"),
-            "client_id": user_role.get("client_id"),
+            "email": client["email"],
+            "role": client["role"],
+            "reseller_id": client.get("reseller_id"),
+            "client_id": client.get("id"),
             "redirect_to": redirect_to
         }
 
