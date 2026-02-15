@@ -2,7 +2,7 @@
 Auth API Routes
 Role-based authentication with bcrypt + PyJWT
 """
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, UploadFile, File
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from app.infrastructure.supabase_service import get_supabase_service
@@ -11,6 +11,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta
 import logging
+import uuid
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -570,4 +571,161 @@ async def refresh_token(request: RefreshTokenRequest) -> APIResponse:
             success=False,
             error="server_error",
             message="An error occurred refreshing token"
+        )
+
+
+def verify_jwt_token(authorization: Optional[str]) -> dict:
+    """
+    Verify JWT token from Authorization header and return payload
+
+    Args:
+        authorization: Authorization header value
+
+    Returns:
+        JWT payload dict with client_id, email, role
+
+    Raises:
+        HTTPException: If token is missing, invalid, or expired
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or invalid authorization header"
+        )
+
+    token = authorization.replace("Bearer ", "")
+
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM]
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
+
+
+@router.post("/upload-avatar", response_model=APIResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None)
+) -> APIResponse:
+    """
+    Upload user avatar image
+
+    - **file**: Image file (PNG/JPG, max 2MB)
+    - **Authorization**: Bearer {jwt_token}
+
+    Returns:
+    - 200: Avatar uploaded successfully with public URL
+    - 400: Invalid file type or size
+    - 401: Invalid or missing token
+    - 500: Upload error
+
+    Uploads to Supabase Storage bucket 'reseller-media' at avatars/{client_id}/
+    """
+    try:
+        # 1. Verify JWT and get client_id
+        payload = verify_jwt_token(authorization)
+        client_id = payload.get("client_id")
+
+        if not client_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token: missing client_id"
+            )
+
+        # 2. Validate file type
+        if not file.content_type or not file.content_type.startswith("image/"):
+            return APIResponse(
+                success=False,
+                error="invalid_file_type",
+                message="File must be an image (PNG/JPG)"
+            )
+
+        allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+        if file.content_type not in allowed_types:
+            return APIResponse(
+                success=False,
+                error="invalid_file_type",
+                message="Only PNG and JPG images are allowed"
+            )
+
+        # 3. Read file and validate size (max 2MB)
+        file_content = await file.read()
+        file_size_mb = len(file_content) / (1024 * 1024)
+
+        if file_size_mb > 2:
+            return APIResponse(
+                success=False,
+                error="file_too_large",
+                message=f"File size ({file_size_mb:.2f}MB) exceeds 2MB limit"
+            )
+
+        # 4. Generate unique filename
+        file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        storage_path = f"avatars/{client_id}/{unique_filename}"
+
+        # 5. Upload to Supabase Storage
+        service = get_supabase_service()
+
+        try:
+            # Upload file to bucket
+            result = service.client.storage.from_("reseller-media").upload(
+                path=storage_path,
+                file=file_content,
+                file_options={"content-type": file.content_type}
+            )
+
+            # Get public URL
+            public_url = service.client.storage.from_("reseller-media").get_public_url(storage_path)
+
+            logger.info(f"Avatar uploaded for client {client_id}: {storage_path}")
+
+        except Exception as upload_error:
+            logger.error(f"Error uploading to Supabase Storage: {upload_error}")
+            return APIResponse(
+                success=False,
+                error="upload_failed",
+                message="Failed to upload file to storage"
+            )
+
+        # 6. Update clients table with avatar_url
+        try:
+            update_result = service.client.table("clients")\
+                .update({"avatar_url": public_url})\
+                .eq("id", client_id)\
+                .execute()
+
+            if not update_result.data:
+                logger.warning(f"Failed to update avatar_url for client {client_id}")
+
+        except Exception as db_error:
+            logger.error(f"Error updating avatar_url in database: {db_error}")
+            # Don't fail the request - file is already uploaded
+
+        return APIResponse(
+            success=True,
+            data={"avatar_url": public_url},
+            message="Avatar uploaded successfully"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error uploading avatar: {e}", exc_info=True)
+        return APIResponse(
+            success=False,
+            error="server_error",
+            message="An error occurred uploading avatar"
         )
