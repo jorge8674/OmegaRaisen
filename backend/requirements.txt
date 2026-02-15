@@ -32,6 +32,9 @@ python-multipart==0.0.6
 bcrypt==4.1.2
 PyJWT==2.8.0
 
+# Payments
+stripe==7.0.0
+
 # Background Tasks
 celery==5.3.6
 redis==5.0.1

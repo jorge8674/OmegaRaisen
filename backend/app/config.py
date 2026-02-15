@@ -77,7 +77,14 @@ class Settings(BaseSettings):
         default=7,
         env="REFRESH_TOKEN_EXPIRE_DAYS"
     )
-    
+
+    # Stripe Payment
+    stripe_secret_key: str = Field(default="", env="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str = Field(default="", env="STRIPE_WEBHOOK_SECRET")
+    stripe_price_basic: str = Field(default="", env="STRIPE_PRICE_BASIC")
+    stripe_price_pro: str = Field(default="", env="STRIPE_PRICE_PRO")
+    stripe_price_enterprise: str = Field(default="", env="STRIPE_PRICE_ENTERPRISE")
+
     # Celery
     celery_broker_url: str = Field(
         default="redis://localhost:6379/1",

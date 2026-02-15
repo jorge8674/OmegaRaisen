@@ -24,7 +24,8 @@ from app.api.routes import (
     ab_testing,
     orchestrator,
     resellers,
-    auth
+    auth,
+    billing
 )
 
 # Create FastAPI application
@@ -71,6 +72,7 @@ app.include_router(orchestrator.router, prefix=settings.api_v1_prefix, tags=["Or
 # Multi-Tenant Infrastructure
 app.include_router(resellers.router, prefix=settings.api_v1_prefix, tags=["Resellers 🏢"])
 app.include_router(auth.router, prefix=settings.api_v1_prefix, tags=["Auth 🔐"])
+app.include_router(billing.router, prefix=settings.api_v1_prefix, tags=["Billing 💳"])
 
 
 @app.get("/")
