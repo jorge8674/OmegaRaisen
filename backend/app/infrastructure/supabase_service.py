@@ -217,6 +217,128 @@ class SupabaseService:
             logger.error(f"Error creating lead: {e}")
             raise
 
+    async def get_reseller_leads(
+        self,
+        reseller_id: str,
+        status: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20
+    ) -> tuple[List[Dict[str, Any]], int]:
+        """
+        Get leads for a reseller with optional status filter and pagination
+
+        Args:
+            reseller_id: Reseller UUID
+            status: Optional status filter
+            page: Page number (1-indexed)
+            limit: Results per page
+
+        Returns:
+            Tuple of (leads list, total count)
+        """
+        try:
+            # Build query
+            query = self.client.table("leads").select("*", count="exact").eq("reseller_id", reseller_id)
+
+            if status:
+                query = query.eq("status", status)
+
+            # Calculate offset
+            offset = (page - 1) * limit
+
+            # Execute with pagination
+            response = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+
+            leads = response.data if response.data else []
+            total = response.count if hasattr(response, 'count') else 0
+
+            return leads, total
+        except Exception as e:
+            logger.error(f"Error getting reseller leads: {e}")
+            raise
+
+    async def get_lead_counts(self, reseller_id: str) -> Dict[str, int]:
+        """
+        Get lead counts by status for a reseller
+
+        Args:
+            reseller_id: Reseller UUID
+
+        Returns:
+            Dict with counts by status
+        """
+        try:
+            # Get all leads for counting
+            response = self.client.table("leads").select("status").eq("reseller_id", reseller_id).execute()
+
+            leads = response.data if response.data else []
+
+            counts = {
+                "total": len(leads),
+                "new": len([l for l in leads if l.get("status") == "new"]),
+                "contacted": len([l for l in leads if l.get("status") == "contacted"]),
+                "converted": len([l for l in leads if l.get("status") == "converted"]),
+                "lost": len([l for l in leads if l.get("status") == "lost"])
+            }
+
+            return counts
+        except Exception as e:
+            logger.error(f"Error getting lead counts: {e}")
+            raise
+
+    async def get_lead_by_id(self, lead_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get lead by ID
+
+        Args:
+            lead_id: Lead UUID
+
+        Returns:
+            Lead object or None
+        """
+        try:
+            response = self.client.table("leads").select("*").eq("id", lead_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error getting lead by ID: {e}")
+            raise
+
+    async def update_lead_status(self, lead_id: str, status: str, notes: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Update lead status and optional notes
+
+        Args:
+            lead_id: Lead UUID
+            status: New status
+            notes: Optional notes to add
+
+        Returns:
+            Updated lead object
+        """
+        try:
+            from datetime import datetime
+
+            update_data = {"status": status}
+
+            if notes:
+                update_data["notes"] = notes
+
+            # Set contacted_at timestamp for specific status changes
+            if status == "contacted":
+                update_data["contacted_at"] = datetime.utcnow().isoformat()
+            elif status == "converted":
+                # Only set contacted_at if it's null
+                lead = await self.get_lead_by_id(lead_id)
+                if lead and not lead.get("contacted_at"):
+                    update_data["contacted_at"] = datetime.utcnow().isoformat()
+
+            response = self.client.table("leads").update(update_data).eq("id", lead_id).execute()
+            logger.info(f"Lead {lead_id} status updated to {status}")
+            return response.data[0] if response.data else {}
+        except Exception as e:
+            logger.error(f"Error updating lead status: {e}")
+            raise
+
     # ═══════════════════════════════════════════════════════════════
     # USER ROLES & AUTH
     # ═══════════════════════════════════════════════════════════════
