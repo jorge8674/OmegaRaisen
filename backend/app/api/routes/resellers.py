@@ -107,6 +107,9 @@ class BrandingRequest(BaseModel):
     footer_text: Optional[str] = None
     social_links: Optional[Dict[str, Any]] = None
 
+    # Pricing
+    pricing_plans: Optional[List[dict]] = None
+
     # Legacy fields (keep for backward compatibility)
     agency_tagline: Optional[str] = None
     badge_text: Optional[str] = None
