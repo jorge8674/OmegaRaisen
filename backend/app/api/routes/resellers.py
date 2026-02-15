@@ -508,7 +508,8 @@ async def get_branding(reseller_id: str) -> APIResponse:
                 "contact_email": None,
                 "contact_phone": None,
                 "footer_text": None,
-                "social_links": {}
+                "social_links": {},
+                "pricing_plans": []
             }
         else:
             # Add slug to branding data
@@ -523,6 +524,9 @@ async def get_branding(reseller_id: str) -> APIResponse:
             branding["testimonials_section"] = sanitize_json_field(branding.get("testimonials_section"))
             branding["client_logos_section"] = sanitize_json_field(branding.get("client_logos_section"))
             branding["social_links"] = sanitize_json_field(branding.get("social_links"))
+
+            # Ensure pricing_plans is always an array
+            branding["pricing_plans"] = branding.get("pricing_plans") or []
 
         return APIResponse(
             success=True,
@@ -654,7 +658,8 @@ async def get_branding_by_slug(slug: str) -> APIResponse:
                 "contact_email": None,
                 "contact_phone": None,
                 "footer_text": None,
-                "social_links": {}
+                "social_links": {},
+                "pricing_plans": []
             }
         else:
             # Sanitize JSONB fields to ensure they're always dicts, never lists
@@ -666,6 +671,9 @@ async def get_branding_by_slug(slug: str) -> APIResponse:
             branding["testimonials_section"] = sanitize_json_field(branding.get("testimonials_section"))
             branding["client_logos_section"] = sanitize_json_field(branding.get("client_logos_section"))
             branding["social_links"] = sanitize_json_field(branding.get("social_links"))
+
+            # Ensure pricing_plans is always an array
+            branding["pricing_plans"] = branding.get("pricing_plans") or []
 
         # Combine reseller + branding
         public_data = {
