@@ -34,8 +34,8 @@ class ClientProfile(BaseModel):
     avatar_url: Optional[str] = None
     stripe_customer_id: Optional[str] = None
     notes: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 # ── Create payload ─────────────────────────────────────────
 class ClientCreate(BaseModel):

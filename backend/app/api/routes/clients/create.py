@@ -5,6 +5,7 @@ POST /clients/ - Create new client account
 from fastapi import APIRouter, HTTPException, Header
 from typing import Optional
 import logging
+from datetime import datetime, timezone
 
 from app.api.routes.clients.models import ClientCreate, ClientResponse, ClientProfile
 from app.api.routes.auth.auth_utils import get_current_user
@@ -69,6 +70,8 @@ async def create_client(
             "subscription_status": "trial",
             "trial_active": True,
             "reseller_id": reseller_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # 7. Create client in database
