@@ -26,7 +26,8 @@ from app.api.routes import (
     resellers,
     auth,
     billing,
-    context
+    context,
+    clients
 )
 
 # Create FastAPI application
@@ -75,6 +76,7 @@ app.include_router(resellers.router, prefix=settings.api_v1_prefix, tags=["Resel
 app.include_router(auth.router, prefix=settings.api_v1_prefix, tags=["Auth 🔐"])
 app.include_router(billing.router, prefix=settings.api_v1_prefix, tags=["Billing 💳"])
 app.include_router(context.router, prefix=settings.api_v1_prefix, tags=["Context 🎯"])
+app.include_router(clients.router, prefix=settings.api_v1_prefix, tags=["Clients 👥"])
 
 
 @app.get("/")
