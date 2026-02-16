@@ -11,7 +11,7 @@ from datetime import datetime
 PlanOption = Literal["basic", "pro", "enterprise"]
 RoleOption = Literal["owner", "reseller", "client"]
 StatusOption = Literal["active", "inactive", "deleted", "suspended"]
-SubscriptionStatusOption = Literal["trial", "active", "past_due", "canceled"]
+SubscriptionStatusOption = Literal["trial", "active", "past_due", "canceled", "inactive"]
 
 # ── Data shape (DB row) ────────────────────────────────────
 class ClientProfile(BaseModel):
