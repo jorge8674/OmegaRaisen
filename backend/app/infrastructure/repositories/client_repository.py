@@ -9,14 +9,6 @@ from app.infrastructure.supabase_service import get_supabase_service
 
 logger = logging.getLogger(__name__)
 
-# Client fields (excludes password_hash for security)
-CLIENT_SELECT = (
-    "id, email, name, phone, company, plan, role, status, "
-    "subscription_status, trial_active, trial_ends_at, "
-    "reseller_id, avatar_url, stripe_customer_id, notes, "
-    "created_at, updated_at"
-)
-
 
 class ClientRepository:
     """Repository for client CRUD operations"""
@@ -36,7 +28,7 @@ class ClientRepository:
         """List clients with role-based filtering."""
         try:
             query = self.service.client.table("clients")\
-                .select(CLIENT_SELECT)\
+                .select("*")\
                 .neq("status", "deleted")
 
             if role == "reseller":
@@ -52,7 +44,13 @@ class ClientRepository:
             query = query.order("created_at", desc=True)
 
             response = query.execute()
-            return response.data if response.data else []
+            clients_data = response.data if response.data else []
+
+            for client in clients_data:
+                client.pop("password_hash", None)
+                client.pop("refresh_token", None)
+
+            return clients_data
 
         except Exception as e:
             logger.error(f"Error listing clients: {e}")
@@ -70,6 +68,7 @@ class ClientRepository:
 
             client = response.data[0]
             client.pop("password_hash", None)
+            client.pop("refresh_token", None)
 
             logger.info(f"Client created: {data.get('email')}")
             return client
@@ -82,12 +81,19 @@ class ClientRepository:
         """Get client by ID (excludes deleted)."""
         try:
             response = self.service.client.table("clients")\
-                .select(CLIENT_SELECT)\
+                .select("*")\
                 .eq("id", client_id)\
                 .neq("status", "deleted")\
                 .execute()
 
-            return response.data[0] if response.data else None
+            if not response.data:
+                return None
+
+            client = response.data[0]
+            client.pop("password_hash", None)
+            client.pop("refresh_token", None)
+
+            return client
 
         except Exception as e:
             logger.error(f"Error getting client: {e}")
@@ -101,7 +107,13 @@ class ClientRepository:
                 .eq("email", email)\
                 .execute()
 
-            return response.data[0] if response.data else None
+            if not response.data:
+                return None
+
+            client = response.data[0]
+            client.pop("refresh_token", None)
+
+            return client
 
         except Exception as e:
             logger.error(f"Error getting client by email: {e}")
@@ -126,6 +138,7 @@ class ClientRepository:
 
             client = response.data[0]
             client.pop("password_hash", None)
+            client.pop("refresh_token", None)
 
             logger.info(f"Client updated: {client_id}")
             return client
