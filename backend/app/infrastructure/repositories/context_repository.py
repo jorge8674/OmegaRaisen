@@ -115,15 +115,26 @@ class ContextRepository:
         """
         try:
             response = self.service.client.table("client_context")\
-                .select("ai_generated_brief")\
+                .select("ai_generated_brief, custom_instructions")\
                 .eq("client_id", client_id)\
                 .eq("is_active", True)\
                 .order("version", desc=True)\
                 .limit(1)\
                 .execute()
 
-            if response.data and response.data[0].get("ai_generated_brief"):
-                return response.data[0]["ai_generated_brief"]
+            if not response.data:
+                return None
+
+            row = response.data[0]
+
+            # Primary: use AI-generated brief if exists
+            if row.get("ai_generated_brief"):
+                return row["ai_generated_brief"]
+
+            # Fallback: use custom_instructions until brief is generated
+            if row.get("custom_instructions"):
+                return row["custom_instructions"]
+
             return None
         except Exception as e:
             logger.error(f"Error getting context for generation: {e}")
