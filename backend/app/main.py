@@ -25,7 +25,8 @@ from app.api.routes import (
     orchestrator,
     resellers,
     auth,
-    billing
+    billing,
+    context
 )
 
 # Create FastAPI application
@@ -73,6 +74,7 @@ app.include_router(orchestrator.router, prefix=settings.api_v1_prefix, tags=["Or
 app.include_router(resellers.router, prefix=settings.api_v1_prefix, tags=["Resellers 🏢"])
 app.include_router(auth.router, prefix=settings.api_v1_prefix, tags=["Auth 🔐"])
 app.include_router(billing.router, prefix=settings.api_v1_prefix, tags=["Billing 💳"])
+app.include_router(context.router, prefix=settings.api_v1_prefix, tags=["Context 🎯"])
 
 
 @app.get("/")
