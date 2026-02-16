@@ -10,6 +10,7 @@ from app.api.routes.context import (
     create,
     read,
     update,
+    generate,
 )
 
 # Create main router
@@ -22,5 +23,6 @@ logger = logging.getLogger(__name__)
 router.include_router(create.router, tags=["context-create"])
 router.include_router(read.router, tags=["context-read"])
 router.include_router(update.router, tags=["context-update"])
+router.include_router(generate.router, tags=["context-brief"])
 
 logger.info("Context routers registered successfully")

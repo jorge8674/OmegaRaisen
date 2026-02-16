@@ -100,6 +100,7 @@ class ClientContextUpdate(BaseModel):
     brand_colors: Optional[List[str]] = None
     website_url: Optional[str] = None
     custom_instructions: Optional[str] = None
+    ai_generated_brief: Optional[str] = None
 
 # ── Response envelope ──────────────────────────────────────
 class ClientContextResponse(BaseModel):
