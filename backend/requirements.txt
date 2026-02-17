@@ -21,7 +21,7 @@ langchain-openai==0.0.5
 langgraph==0.0.20
 litellm>=1.30.0
 mem0ai>=0.1.0
-pyautogen==0.2.0
+pyautogen>=0.2.35
 qdrant-client>=1.7.0
 
 # HTTP Clients

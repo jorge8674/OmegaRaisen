@@ -1,6 +1,12 @@
 [phases.setup]
 nixPkgs = ["python311", "gcc"]
 
+[phases]
+providers = ["python"]
+
+[providers.python]
+version = "3.11"
+
 [phases.install]
 cmds = [
     "pip install --no-cache-dir --upgrade pip",
