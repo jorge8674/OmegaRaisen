@@ -7,7 +7,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
-from app.infrastructure.vector_store.qdrant_client import initialize_qdrant
+
+# Optional Qdrant import (graceful degradation during dependency installation)
+try:
+    from app.infrastructure.vector_store.qdrant_client import initialize_qdrant
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+    import logging
+    logging.warning("Qdrant dependencies not installed yet")
+
 from app.api.routes import (
     content,
     strategy,
@@ -57,7 +66,11 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
-    await initialize_qdrant()
+    if QDRANT_AVAILABLE:
+        await initialize_qdrant()
+    else:
+        import logging
+        logging.warning("Skipping Qdrant initialization - dependencies not installed")
 
 
 # Core Agents (1-5)
