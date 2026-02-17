@@ -16,7 +16,7 @@ from app.infrastructure.supabase_service import get_supabase_service
 from .models import BrandFileProfile, BrandFileResponse, BrandFileListResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/brand-files", tags=["brand-files"])
 
 # Plan limits for brand files
 PLAN_LIMITS = {
