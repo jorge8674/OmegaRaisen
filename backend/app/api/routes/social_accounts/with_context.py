@@ -116,26 +116,14 @@ async def create_account_with_context(
 
         # 6. Create context first
         supabase_service = get_supabase_service()
-        context_data = {
-            "client_id": client_id,
-            "business_name": request.context.business_name,
-            "industry": request.context.industry,
-            "business_description": request.context.business_description,
-            "communication_tone": request.context.communication_tone,
-            "primary_goal": request.context.primary_goal,
-            "keywords": request.context.keywords,
-            "forbidden_words": request.context.forbidden_words,
-            "forbidden_topics": request.context.forbidden_topics,
-            "brand_colors": request.context.brand_colors,
-            "website_url": request.context.website_url,
-            "custom_instructions": request.context.custom_instructions,
-            "target_audience": {},
-            "platforms": [],
-            "is_active": True,
-            "version": 1,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        context_data = request.context.model_dump()
+        context_data["client_id"] = client_id
+        context_data["target_audience"] = {}
+        context_data["platforms"] = []
+        context_data["version"] = 1
+        context_data["is_active"] = True
+        context_data["created_at"] = datetime.now(timezone.utc).isoformat()
+        context_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         context_result = supabase_service.client.table("client_context")\
             .insert(context_data)\
@@ -225,20 +213,8 @@ async def update_account_with_context(
         # 5. Update context if provided
         if request.context and account.get("context_id"):
             supabase_service = get_supabase_service()
-            context_updates = {
-                "business_name": request.context.business_name,
-                "industry": request.context.industry,
-                "business_description": request.context.business_description,
-                "communication_tone": request.context.communication_tone,
-                "primary_goal": request.context.primary_goal,
-                "keywords": request.context.keywords,
-                "forbidden_words": request.context.forbidden_words,
-                "forbidden_topics": request.context.forbidden_topics,
-                "brand_colors": request.context.brand_colors,
-                "website_url": request.context.website_url,
-                "custom_instructions": request.context.custom_instructions,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
+            context_updates = request.context.model_dump()
+            context_updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 
             context_result = supabase_service.client.table("client_context")\
                 .update(context_updates)\
