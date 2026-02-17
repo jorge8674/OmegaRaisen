@@ -31,16 +31,18 @@ PLAN_LIMITS = {
 
 
 class ContextData(BaseModel):
-    """Embedded context data for social account"""
+    """Embedded context data for social account - matches client_context schema"""
     business_name: str = Field(..., min_length=1, max_length=200)
     industry: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    website_url: Optional[str] = Field(default=None, max_length=500)
+    business_description: Optional[str] = Field(default=None, max_length=1000)
+    communication_tone: str = Field(default="casual")
+    primary_goal: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
     forbidden_words: List[str] = Field(default_factory=list)
     forbidden_topics: List[str] = Field(default_factory=list)
-    tones: List[str] = Field(default_factory=list)
-    goals: List[str] = Field(default_factory=list)
+    brand_colors: List[str] = Field(default_factory=list)
+    website_url: Optional[str] = Field(default=None, max_length=500)
+    custom_instructions: Optional[str] = None
 
 
 class SocialAccountWithContextCreate(BaseModel):
@@ -118,13 +120,17 @@ async def create_account_with_context(
             "client_id": client_id,
             "business_name": request.context.business_name,
             "industry": request.context.industry,
-            "description": request.context.description,
-            "website_url": request.context.website_url,
+            "business_description": request.context.business_description,
+            "communication_tone": request.context.communication_tone,
+            "primary_goal": request.context.primary_goal,
             "keywords": request.context.keywords,
             "forbidden_words": request.context.forbidden_words,
             "forbidden_topics": request.context.forbidden_topics,
-            "tones": request.context.tones,
-            "goals": request.context.goals,
+            "brand_colors": request.context.brand_colors,
+            "website_url": request.context.website_url,
+            "custom_instructions": request.context.custom_instructions,
+            "target_audience": {},
+            "platforms": [],
             "is_active": True,
             "version": 1,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -222,13 +228,15 @@ async def update_account_with_context(
             context_updates = {
                 "business_name": request.context.business_name,
                 "industry": request.context.industry,
-                "description": request.context.description,
-                "website_url": request.context.website_url,
+                "business_description": request.context.business_description,
+                "communication_tone": request.context.communication_tone,
+                "primary_goal": request.context.primary_goal,
                 "keywords": request.context.keywords,
                 "forbidden_words": request.context.forbidden_words,
                 "forbidden_topics": request.context.forbidden_topics,
-                "tones": request.context.tones,
-                "goals": request.context.goals,
+                "brand_colors": request.context.brand_colors,
+                "website_url": request.context.website_url,
+                "custom_instructions": request.context.custom_instructions,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
 
