@@ -344,3 +344,136 @@ async def delete_content(
             status_code=500,
             detail="Error eliminando contenido"
         )
+
+
+@router.post("/generate-image/", response_model=ContentGenerateResponse)
+async def generate_image(
+    account_id: str = Query(..., description="Social account UUID"),
+    prompt: str = Query(..., min_length=5, max_length=500, description="Image description"),
+    style: str = Query(default="realistic", description="Image style: realistic, cartoon, minimal"),
+    authorization: Optional[str] = Header(None)
+) -> ContentGenerateResponse:
+    """
+    Generate image with DALL-E 3 using account context.
+    Returns URL to generated image stored in generated_content table.
+    """
+    try:
+        user = await get_current_user(authorization)
+        supabase = get_supabase_service()
+
+        # 1. Get account + context
+        account_result = supabase.client.table("social_accounts")\
+            .select("*")\
+            .eq("id", account_id)\
+            .eq("is_active", True)\
+            .single()\
+            .execute()
+
+        if not account_result.data:
+            raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+        account = account_result.data
+        context = {}
+        if account.get("context_id"):
+            ctx = supabase.client.table("client_context")\
+                .select("*")\
+                .eq("id", account["context_id"])\
+                .single()\
+                .execute()
+            if ctx.data:
+                context = ctx.data
+
+        # 2. Build DALL-E prompt with brand context
+        business = context.get("business_name", "")
+        industry = context.get("industry", "")
+        brand_colors = context.get("brand_colors", [])
+
+        style_map = {
+            "realistic": "professional photography, high quality, commercial",
+            "cartoon": "flat design illustration, vector art, colorful",
+            "minimal": "minimalist, clean, white background, simple",
+        }
+
+        dalle_prompt = f"{prompt}"
+        if business:
+            dalle_prompt += f", for {business} brand"
+        if industry:
+            dalle_prompt += f", {industry} industry"
+        if brand_colors:
+            dalle_prompt += f", brand colors: {', '.join(brand_colors[:3])}"
+        dalle_prompt += f", {style_map.get(style, style_map['realistic'])}"
+        dalle_prompt += ", social media ready, no text overlay"
+
+        # 3. Call DALL-E 3
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if not openai_key:
+            raise HTTPException(
+                status_code=500,
+                detail="OpenAI API key no configurada"
+            )
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {openai_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": dalle_prompt,
+                    "n": 1,
+                    "size": "1024x1024",
+                    "quality": "standard",
+                },
+            )
+
+        if response.status_code != 200:
+            logger.error(f"DALL-E error: {response.text}")
+            raise HTTPException(
+                status_code=502,
+                detail="Error generando imagen con DALL-E"
+            )
+
+        image_url = response.json()["data"][0]["url"]
+
+        # 4. Save to DB as generated_content (image URL in generated_text)
+        db_result = supabase.client.table("generated_content").insert({
+            "client_id": account.get("client_id"),
+            "account_id": account_id,
+            "context_id": account.get("context_id"),
+            "content_type": "image",
+            "platform": account.get("platform"),
+            "prompt": prompt,
+            "generated_text": image_url,  # Store image URL as text
+            "tokens_used": 0,
+            "model_used": "dall-e-3",
+            "is_saved": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+
+        if not db_result.data:
+            raise HTTPException(
+                status_code=500,
+                detail="Error guardando imagen generada"
+            )
+
+        logger.info(
+            f"Image generated: DALL-E 3 for {account.get('platform')} - "
+            f"style: {style}"
+        )
+
+        return ContentGenerateResponse(
+            success=True,
+            data=GeneratedContentProfile(**db_result.data[0]),
+            message="Imagen generada exitosamente"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating image: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generando imagen: {str(e)}"
+        )

@@ -8,7 +8,7 @@ CREATE TABLE generated_content (
   account_id UUID REFERENCES social_accounts(id) ON DELETE SET NULL,
   context_id UUID REFERENCES client_context(id) ON DELETE SET NULL,
   content_type VARCHAR(50) NOT NULL CHECK (content_type IN (
-    'post', 'caption', 'story', 'ad', 'reel_script', 'bio', 'hashtags', 'email'
+    'post', 'caption', 'story', 'ad', 'reel_script', 'bio', 'hashtags', 'email', 'image'
   )),
   platform VARCHAR(50),
   prompt TEXT NOT NULL,

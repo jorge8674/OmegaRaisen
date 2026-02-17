@@ -9,7 +9,7 @@ from datetime import datetime
 
 ContentType = Literal[
     "post", "caption", "story", "ad",
-    "reel_script", "bio", "hashtags", "email"
+    "reel_script", "bio", "hashtags", "email", "image"
 ]
 
 

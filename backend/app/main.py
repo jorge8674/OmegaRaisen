@@ -1,7 +1,7 @@
 """
 OmegaRaisen FastAPI Application
 Main entry point for the backend API
-15 AI Agents | 91 Endpoints | Enterprise Social Media Automation
+15 AI Agents | 92 Endpoints | Enterprise Social Media Automation
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -93,7 +93,7 @@ async def root() -> dict[str, str]:
         "version": "2.0.0",
         "status": "running",
         "agents": "15/15",
-        "endpoints": "91",
+        "endpoints": "92",
         "docs": "/docs"
     }
 
