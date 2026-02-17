@@ -27,7 +27,8 @@ from app.api.routes import (
     auth,
     billing,
     context,
-    clients
+    clients,
+    social_accounts
 )
 
 # Create FastAPI application
@@ -77,6 +78,7 @@ app.include_router(auth.router, prefix=settings.api_v1_prefix, tags=["Auth 🔐"
 app.include_router(billing.router, prefix=settings.api_v1_prefix, tags=["Billing 💳"])
 app.include_router(context.router, prefix=settings.api_v1_prefix, tags=["Context 🎯"])
 app.include_router(clients.router, prefix=settings.api_v1_prefix, tags=["Clients 👥"])
+app.include_router(social_accounts.router, prefix=settings.api_v1_prefix, tags=["Social Accounts 📱"])
 
 
 @app.get("/")
