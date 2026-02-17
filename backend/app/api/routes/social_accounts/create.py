@@ -2,7 +2,7 @@
 Social Account Create Endpoint
 POST /social-accounts/ - Create new social account
 """
-from fastapi import APIRouter, HTTPException, Header, Query
+from fastapi import APIRouter, HTTPException, Header, Query, Body
 from typing import Optional
 import logging
 from datetime import datetime, timezone
@@ -29,8 +29,8 @@ PLAN_LIMITS = {
 
 @router.post("/", response_model=SocialAccountResponse)
 async def create_social_account(
-    request: SocialAccountCreate,
     client_id: str = Query(..., description="Client UUID"),
+    request: SocialAccountCreate = Body(...),
     authorization: Optional[str] = Header(None)
 ) -> SocialAccountResponse:
     """
