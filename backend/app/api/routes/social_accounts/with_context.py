@@ -41,6 +41,7 @@ class ContextData(BaseModel):
     forbidden_words: List[str] = Field(default_factory=list)
     forbidden_topics: List[str] = Field(default_factory=list)
     brand_colors: List[str] = Field(default_factory=list)
+    logo_url: Optional[str] = Field(default=None, max_length=500)
     website_url: Optional[str] = Field(default=None, max_length=500)
     custom_instructions: Optional[str] = None
 
