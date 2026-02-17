@@ -115,27 +115,41 @@ async def create_account_with_context(
                 )
             )
 
-        # 6. Create context first
+        # 6. Check if context exists, create if not
         supabase_service = get_supabase_service()
-        context_data = request.context.model_dump()
-        context_data["client_id"] = client_id
-        context_data["target_audience"] = {}
-        context_data["platforms"] = []
-        context_data["version"] = 1
-        context_data["is_active"] = True
-        context_data["ai_generated_brief"] = None
-        context_data["created_at"] = datetime.now(timezone.utc).isoformat()
-        context_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        context_result = supabase_service.client.table("client_context")\
-            .insert(context_data)\
+        # Check for existing active context
+        existing_context = supabase_service.client.table("client_context")\
+            .select("id")\
+            .eq("client_id", client_id)\
+            .eq("is_active", True)\
             .execute()
 
-        if not context_result.data:
-            raise HTTPException(status_code=500, detail="Failed to create context")
+        if existing_context.data:
+            # Reuse existing context_id
+            context_id = existing_context.data[0]["id"]
+            logger.info(f"Reusing existing context: {context_id} for client {client_id}")
+        else:
+            # Create new context
+            context_data = request.context.model_dump()
+            context_data["client_id"] = client_id
+            context_data["target_audience"] = {}
+            context_data["platforms"] = []
+            context_data["version"] = 1
+            context_data["is_active"] = True
+            context_data["ai_generated_brief"] = None
+            context_data["created_at"] = datetime.now(timezone.utc).isoformat()
+            context_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        context_id = context_result.data[0]["id"]
-        logger.info(f"Context created: {context_id} for client {client_id}")
+            context_result = supabase_service.client.table("client_context")\
+                .insert(context_data)\
+                .execute()
+
+            if not context_result.data:
+                raise HTTPException(status_code=500, detail="Failed to create context")
+
+            context_id = context_result.data[0]["id"]
+            logger.info(f"Context created: {context_id} for client {client_id}")
 
         # 7. Create social account with context_id
         account_data = {
@@ -170,7 +184,7 @@ async def create_account_with_context(
         logger.error(f"Error creating account with context: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"DEBUG: {str(e)}"
+            detail="An error occurred while creating account with context"
         )
 
 
