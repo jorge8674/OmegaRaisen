@@ -170,7 +170,7 @@ async def create_account_with_context(
         logger.error(f"Error creating account with context: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while creating account with context"
+            detail=f"DEBUG: {str(e)}"
         )
 
 
