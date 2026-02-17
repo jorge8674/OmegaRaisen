@@ -87,6 +87,8 @@ async def create_social_account(
             "username": request.username,
             "profile_url": request.profile_url,
             "context_id": request.context_id,
+            "scraping_enabled": True,
+            "scraped_data": {},
             "is_active": True,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),

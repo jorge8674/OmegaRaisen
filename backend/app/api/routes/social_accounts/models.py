@@ -29,6 +29,8 @@ class SocialAccountProfile(BaseModel):
     username: str
     profile_url: Optional[str] = None
     context_id: Optional[str] = None
+    scraping_enabled: bool = True
+    scraped_data: Optional[dict] = None
     is_active: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -50,6 +52,8 @@ class SocialAccountUpdate(BaseModel):
     username: Optional[str] = Field(default=None, min_length=1, max_length=255)
     profile_url: Optional[str] = Field(default=None, max_length=500)
     context_id: Optional[str] = None
+    scraping_enabled: Optional[bool] = None
+    scraped_data: Optional[dict] = None
     is_active: Optional[bool] = None
 
 # ── Response envelopes ─────────────────────────────────────
