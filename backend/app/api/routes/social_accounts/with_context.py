@@ -172,6 +172,76 @@ async def create_account_with_context(
         )
 
 
+@router.get("/{account_id}/")
+async def get_account_with_context(
+    account_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Get social account with its full context hydrated.
+    Used for edit flows where AccountsTab needs to load existing context.
+    """
+    try:
+        # 1. Get authenticated user
+        user = await get_current_user(authorization)
+        role = user["role"]
+        authenticated_id = user["id"]
+
+        # 2. Get account
+        account = await social_account_repository.get_account(account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Social account not found")
+
+        # 3. Verify access
+        client_id = account.get("client_id")
+        client = await client_repository.get_client(client_id)
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+
+        # 4. Role-based access control
+        if role == "reseller" and client.get("reseller_id") != authenticated_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Resellers can only access their clients' accounts"
+            )
+        elif role == "client" and client_id != authenticated_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Clients can only access their own accounts"
+            )
+
+        # 5. Get context if exists
+        context = None
+        if account.get("context_id"):
+            supabase_service = get_supabase_service()
+            ctx_result = supabase_service.client.table("client_context")\
+                .select("*")\
+                .eq("id", account["context_id"])\
+                .execute()
+
+            if ctx_result.data:
+                context = ctx_result.data[0]
+                logger.info(f"Context loaded for account {account_id}")
+
+        return {
+            "success": True,
+            "data": {
+                **account,
+                "context": context
+            },
+            "message": "Account with context retrieved successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting account with context: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while retrieving account"
+        )
+
+
 @router.patch("/{account_id}/", response_model=SocialAccountResponse)
 async def update_account_with_context(
     account_id: str,
