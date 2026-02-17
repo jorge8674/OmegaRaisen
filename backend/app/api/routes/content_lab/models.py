@@ -1,57 +1,142 @@
 """
-Content Lab Domain Models
-Pydantic schemas for AI content generation.
+Modelos Pydantic para Content Lab API.
+Filosofía: No velocity, only precision 🐢💎
 """
+from typing import Optional, Any
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
-from datetime import datetime
+
+from app.domain.llm.types import ContentType
 
 
-ContentType = Literal[
-    "post", "caption", "story", "ad",
-    "reel_script", "bio", "hashtags", "email", "image"
-]
+class GenerateTextRequest(BaseModel):
+    """Request para generación de texto."""
+    client_id: int = Field(..., description="ID del cliente")
+    social_account_id: int = Field(..., description="ID de cuenta social")
+    content_type: ContentType = Field(..., description="Tipo de contenido")
+    brief: str = Field(..., min_length=1, description="Brief del usuario")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "client_id": 123,
+                "social_account_id": 456,
+                "content_type": "caption",
+                "brief": "Post sobre nuestro nuevo producto"
+            }
+        }
 
 
-class ContentGenerateRequest(BaseModel):
-    """Request payload for generating content"""
-    account_id: str = Field(..., description="Social account UUID")
-    content_type: ContentType = Field(..., description="Type of content to generate")
-    prompt: str = Field(..., min_length=5, max_length=1000, description="Content theme/prompt")
-    extra_instructions: Optional[str] = Field(
-        default=None,
-        max_length=500,
-        description="Additional instructions"
+class GenerateTextResponse(BaseModel):
+    """Response de generación de texto."""
+    content: str = Field(..., description="Contenido generado")
+    metadata: dict[str, Any] = Field(
+        ...,
+        description="Metadata (provider, model, tokens, etc.)"
     )
 
-
-class GeneratedContentProfile(BaseModel):
-    """Complete generated content profile from database"""
-    id: str
-    client_id: str
-    account_id: Optional[str] = None
-    context_id: Optional[str] = None
-    content_type: str
-    platform: Optional[str] = None
-    prompt: str
-    generated_text: str
-    tokens_used: int = 0
-    model_used: str
-    is_saved: bool = False
-    created_at: Optional[datetime] = None
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "content": "🚀 Descubre nuestro nuevo producto...",
+                "metadata": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4",
+                    "cached": True,
+                    "tokens_used": 150
+                }
+            }
+        }
 
 
-class ContentGenerateResponse(BaseModel):
-    """Standard API response for content generation"""
-    success: bool
-    data: Optional[GeneratedContentProfile] = None
-    message: Optional[str] = None
-    error: Optional[str] = None
+class GenerateImageRequest(BaseModel):
+    """Request para generación de imágenes."""
+    client_id: int = Field(..., description="ID del cliente")
+    social_account_id: int = Field(..., description="ID de cuenta social")
+    prompt: str = Field(..., min_length=1, description="Descripción de la imagen")
+    style: str = Field(
+        default="realistic",
+        description="Estilo: realistic, cartoon, minimal"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "client_id": 123,
+                "social_account_id": 456,
+                "prompt": "Producto tecnológico moderno sobre fondo blanco",
+                "style": "realistic"
+            }
+        }
+
+
+class GenerateImageResponse(BaseModel):
+    """Response de generación de imagen."""
+    image_url: str = Field(..., description="URL de la imagen generada")
+    metadata: dict[str, Any] = Field(
+        ...,
+        description="Metadata (provider, model, style, etc.)"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "image_url": "https://storage.example.com/image123.png",
+                "metadata": {
+                    "provider": "fal",
+                    "model": "flux-dev",
+                    "style": "realistic"
+                }
+            }
+        }
 
 
 class ContentListResponse(BaseModel):
-    """API response for listing generated content"""
-    success: bool
-    data: List[GeneratedContentProfile] = []
-    total: int = 0
-    message: Optional[str] = None
+    """Response de listado de contenido."""
+    items: list[dict[str, Any]] = Field(
+        ...,
+        description="Lista de contenido generado"
+    )
+    total: int = Field(..., description="Total de items")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "items": [
+                    {
+                        "id": 1,
+                        "content": "Caption generado...",
+                        "content_type": "caption",
+                        "created_at": "2026-02-17T20:00:00Z"
+                    }
+                ],
+                "total": 1
+            }
+        }
+
+
+class SaveContentResponse(BaseModel):
+    """Response de guardar contenido."""
+    id: int = Field(..., description="ID del contenido")
+    saved: bool = Field(..., description="Estado de guardado")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 123,
+                "saved": True
+            }
+        }
+
+
+class DeleteContentResponse(BaseModel):
+    """Response de eliminar contenido."""
+    id: int = Field(..., description="ID del contenido eliminado")
+    deleted: bool = Field(..., description="Confirmación de eliminación")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 123,
+                "deleted": True
+            }
+        }

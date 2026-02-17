@@ -102,7 +102,11 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
     rate_limit_per_hour: int = Field(default=1000, env="RATE_LIMIT_PER_HOUR")
-    
+
+    # Qdrant Vector Store
+    QDRANT_HOST: str = Field(default="localhost", env="QDRANT_HOST")
+    QDRANT_PORT: int = Field(default=6333, env="QDRANT_PORT")
+
     @validator("backend_cors_origins", pre=True)
     def parse_cors_origins(cls, v: str | List[str]) -> List[str]:
         """Parse CORS origins from string or list"""

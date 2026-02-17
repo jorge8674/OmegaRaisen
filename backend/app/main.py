@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
+from app.infrastructure.vector_store.qdrant_client import initialize_qdrant
 from app.api.routes import (
     content,
     strategy,
@@ -50,6 +51,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    await initialize_qdrant()
+
 
 # Core Agents (1-5)
 app.include_router(content.router, prefix=settings.api_v1_prefix, tags=["Content Creator"])
