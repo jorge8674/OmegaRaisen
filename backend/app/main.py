@@ -1,7 +1,7 @@
 """
 OmegaRaisen FastAPI Application
 Main entry point for the backend API
-15 AI Agents | 84 Endpoints | Enterprise Social Media Automation
+15 AI Agents | 87 Endpoints | Enterprise Social Media Automation
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +28,8 @@ from app.api.routes import (
     billing,
     context,
     clients,
-    social_accounts
+    social_accounts,
+    brand_files
 )
 
 # Create FastAPI application
@@ -79,6 +80,7 @@ app.include_router(billing.router, prefix=settings.api_v1_prefix, tags=["Billing
 app.include_router(context.router, prefix=settings.api_v1_prefix, tags=["Context 🎯"])
 app.include_router(clients.router, prefix=settings.api_v1_prefix, tags=["Clients 👥"])
 app.include_router(social_accounts.router, prefix=settings.api_v1_prefix, tags=["Social Accounts 📱"])
+app.include_router(brand_files.router, prefix=settings.api_v1_prefix, tags=["Brand Files 📎"])
 
 
 @app.get("/")
@@ -89,7 +91,7 @@ async def root() -> dict[str, str]:
         "version": "2.0.0",
         "status": "running",
         "agents": "15/15",
-        "endpoints": "84+",
+        "endpoints": "87",
         "docs": "/docs"
     }
 
