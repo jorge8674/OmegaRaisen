@@ -38,6 +38,7 @@ class SocialAccountProfile(BaseModel):
 # ── Create payload ─────────────────────────────────────────
 class SocialAccountCreate(BaseModel):
     """Request payload for creating new social account"""
+    client_id: str = Field(..., description="Client UUID")
     platform: PlatformOption = Field(..., description="Social media platform")
     username: str = Field(..., min_length=1, max_length=255)
     profile_url: Optional[str] = Field(default=None, max_length=500)

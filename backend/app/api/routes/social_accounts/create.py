@@ -29,8 +29,7 @@ PLAN_LIMITS = {
 
 @router.post("/", response_model=SocialAccountResponse)
 async def create_social_account(
-    client_id: str = Query(..., description="Client UUID"),
-    request: SocialAccountCreate = Body(...),
+    request: SocialAccountCreate,
     authorization: Optional[str] = Header(None)
 ) -> SocialAccountResponse:
     """
@@ -43,7 +42,10 @@ async def create_social_account(
         role = user["role"]
         authenticated_id = user["id"]
 
-        # 2. Verify client exists and user has access
+        # 2. Extract client_id from request body
+        client_id = request.client_id
+
+        # 3. Verify client exists and user has access
         client = await client_repository.get_client(client_id)
         if not client:
             raise HTTPException(status_code=404, detail="Client not found")
