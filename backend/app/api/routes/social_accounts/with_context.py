@@ -123,6 +123,7 @@ async def create_account_with_context(
         context_data["platforms"] = []
         context_data["version"] = 1
         context_data["is_active"] = True
+        context_data["ai_generated_brief"] = None
         context_data["created_at"] = datetime.now(timezone.utc).isoformat()
         context_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
