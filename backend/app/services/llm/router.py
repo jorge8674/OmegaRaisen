@@ -4,7 +4,8 @@ Filosofía: No velocity, only precision 🐢💎
 """
 from typing import Optional
 import logging
-from litellm import completion
+import os
+from openai import AsyncOpenAI
 
 from app.domain.llm.types import (
     ContentType, UserTier, LLMResponse
@@ -12,6 +13,9 @@ from app.domain.llm.types import (
 from app.domain.llm.config import LLM_TIERS
 
 logger = logging.getLogger(__name__)
+
+# Initialize OpenAI client
+_openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 async def generate_content(
     content_type: ContentType,
@@ -54,36 +58,39 @@ async def generate_content(
     messages.append({"role": "user", "content": prompt})
 
     try:
-        # Llamada a litellm con fallback automático
-        response = await completion(
-            model=content_config.primary,
+        # Simplified: Direct OpenAI call (no litellm for faster build)
+        # Map tier config models to OpenAI models
+        model_map = {
+            "anthropic/claude-3.5-haiku": "gpt-4o-mini",
+            "openai/gpt-4o": "gpt-4o",
+            "openai/gpt-4o-mini": "gpt-4o-mini",
+        }
+
+        # Get OpenAI model from config (default to gpt-4o-mini)
+        openai_model = model_map.get(
+            content_config.primary,
+            "gpt-4o-mini"
+        )
+
+        response = await _openai_client.chat.completions.create(
+            model=openai_model,
             messages=messages,
-            fallbacks=content_config.fallback,
-            caching=content_config.cache,
             **kwargs
         )
 
-        # Extraer metadata
-        provider = response.get("_hidden_params", {}).get(
-            "model_provider", "unknown"
-        )
-        model = response.model
-        cached = response.get("_hidden_params", {}).get("cache_hit", False)
-
-        # Calcular tokens usados
-        usage = response.get("usage", {})
-        tokens_used = usage.get("total_tokens", 0)
+        # Extract metadata
+        tokens_used = response.usage.total_tokens if response.usage else 0
 
         logger.info(
-            f"Generated {content_type} for {user_tier} via {provider}/{model} "
-            f"(cached: {cached}, tokens: {tokens_used})"
+            f"Generated {content_type} for {user_tier} via openai/{openai_model} "
+            f"(tokens: {tokens_used})"
         )
 
         return LLMResponse(
             content=response.choices[0].message.content,
-            provider=provider,
-            model=model,
-            cached=cached,
+            provider="openai",
+            model=openai_model,
+            cached=False,
             tokens_used=tokens_used,
             cost_usd=None  # TODO: Implementar cost tracking
         )
