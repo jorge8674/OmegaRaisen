@@ -1,5 +1,5 @@
 """
-Handler: NOVA Chat with OpenAI
+Handler: NOVA Chat with Claude Sonnet 4.5 (Anthropic)
 Conversational AI assistant for OMEGA Company
 Filosofía: No velocity, only precision 🐢💎
 """
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChatMessage(BaseModel):
-    role: str  # "user" | "assistant" | "system"
+    role: str  # "user" | "assistant"
     content: str
 
 
@@ -47,7 +47,7 @@ Responde SIEMPRE en español, con formato markdown cuando sea necesario."""
 
 async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
     """
-    Process chat messages with NOVA AI
+    Process chat messages with Claude Sonnet 4.5
 
     Args:
         request: ChatRequest with messages and optional context_docs
@@ -56,8 +56,8 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
         Dict with assistant response
 
     Raises:
-        HTTPException 500: OpenAI API error
-        HTTPException 503: OpenAI service unavailable
+        HTTPException 500: Anthropic API error
+        HTTPException 503: Anthropic service unavailable
     """
     try:
         # Build context from documents if provided
@@ -68,71 +68,77 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
                 context_text += f"\n--- {doc.get('name', 'Documento')} ---\n"
                 context_text += doc.get('content', '')[:2000]  # Limit per doc
 
-        # Build messages array for OpenAI
-        messages = [
-            {"role": "system", "content": NOVA_SYSTEM_PROMPT + context_text}
-        ]
+        # Build messages array for Claude (exclude system role)
+        messages = []
+        for msg in request.messages[-20:]:  # Last 20 messages (Claude has 200k context)
+            if msg.role in ["user", "assistant"]:  # Claude only accepts user/assistant
+                messages.append({
+                    "role": msg.role,
+                    "content": msg.content
+                })
 
-        # Add conversation history
-        for msg in request.messages[-10:]:  # Last 10 messages only
-            messages.append({
-                "role": msg.role,
-                "content": msg.content
+        # Ensure messages start with user (Claude requirement)
+        if not messages or messages[0]["role"] != "user":
+            messages.insert(0, {
+                "role": "user",
+                "content": "Hola NOVA, estoy listo para trabajar."
             })
 
-        # Check for OpenAI API key
-        api_key = os.getenv("OPENAI_API_KEY")
+        # Check for Anthropic API key
+        api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            logger.error("OPENAI_API_KEY not configured")
+            logger.error("ANTHROPIC_API_KEY not configured")
             # Return fallback response
             return {
                 "role": "assistant",
-                "content": "⚠️ Lo siento, el servicio de IA no está configurado correctamente. Por favor verifica que OPENAI_API_KEY esté configurado en las variables de entorno.\n\nMientras tanto, puedo ayudarte accediendo directamente a los endpoints de la API."
+                "content": "⚠️ Lo siento, el servicio de IA no está configurado correctamente. Por favor verifica que ANTHROPIC_API_KEY esté configurado en las variables de entorno.\n\nMientras tanto, puedo ayudarte accediendo directamente a los endpoints de la API."
             }
 
-        # Call OpenAI API
+        # Call Anthropic API
         try:
             import httpx
 
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
+                    "https://api.anthropic.com/v1/messages",
                     headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json"
                     },
                     json={
-                        "model": "gpt-4o",
-                        "messages": messages,
+                        "model": "claude-sonnet-4-5-20250929",
+                        "max_tokens": 2000,
                         "temperature": 0.7,
-                        "max_tokens": 1000
+                        "system": NOVA_SYSTEM_PROMPT + context_text,
+                        "messages": messages
                     }
                 )
 
                 if response.status_code != 200:
                     error_detail = response.text
-                    logger.error(f"OpenAI API error: {response.status_code} - {error_detail}")
+                    logger.error(f"Anthropic API error: {response.status_code} - {error_detail}")
 
                     if response.status_code == 401:
                         raise HTTPException(
                             status_code=503,
-                            detail="Invalid OpenAI API key"
+                            detail="Invalid Anthropic API key"
                         )
                     elif response.status_code == 429:
                         raise HTTPException(
                             status_code=503,
-                            detail="OpenAI rate limit exceeded"
+                            detail="Anthropic rate limit exceeded"
                         )
                     else:
                         raise HTTPException(
                             status_code=503,
-                            detail=f"OpenAI API error: {response.status_code}"
+                            detail=f"Anthropic API error: {response.status_code}"
                         )
 
                 data = response.json()
-                assistant_message = data["choices"][0]["message"]["content"]
+                assistant_message = data["content"][0]["text"]
 
-                logger.info(f"NOVA chat: generated {len(assistant_message)} chars")
+                logger.info(f"NOVA chat (Claude): generated {len(assistant_message)} chars")
 
                 return {
                     "role": "assistant",
@@ -140,7 +146,7 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
                 }
 
         except httpx.TimeoutException:
-            logger.error("OpenAI API timeout")
+            logger.error("Anthropic API timeout")
             raise HTTPException(
                 status_code=503,
                 detail="AI service timeout - please try again"
