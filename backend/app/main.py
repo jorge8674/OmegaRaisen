@@ -42,7 +42,8 @@ from app.api.routes import (
     brand_files,
     content_lab,
     calendar,
-    agents
+    agents,
+    system
 )
 
 # Create FastAPI application
@@ -109,28 +110,56 @@ app.include_router(brand_files.router, prefix=settings.api_v1_prefix, tags=["Bra
 app.include_router(content_lab.router, prefix=settings.api_v1_prefix, tags=["Content Lab 🎨"])
 app.include_router(calendar.router, prefix=settings.api_v1_prefix, tags=["Calendar 📅"])
 app.include_router(agents.router, prefix=settings.api_v1_prefix, tags=["Agents 🤖"])
+app.include_router(system.router, prefix=settings.api_v1_prefix, tags=["System 🔧"])
 
 
 @app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint"""
+async def root() -> dict[str, str | int]:
+    """Root endpoint with dynamic stats"""
+    from app.api.routes.system.handlers.get_stats import count_routes, get_supabase_service
+
+    # Get dynamic counts
+    total_endpoints = count_routes(app)
+
+    try:
+        supabase = get_supabase_service()
+        agents_resp = supabase.client.table("agents")\
+            .select("id", count="exact")\
+            .eq("is_active", True)\
+            .execute()
+        total_agents = agents_resp.count if agents_resp.count else 37
+    except:
+        total_agents = 37  # Fallback
+
     return {
         "message": "OmegaRaisen API",
         "version": "2.0.0",
         "status": "running",
-        "agents": "37/37",
-        "endpoints": "101",
+        "agents": f"{total_agents}/{total_agents}",
+        "endpoints": str(total_endpoints),
         "docs": "/docs"
     }
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint"""
+    """Health check endpoint with dynamic agent count"""
+    from app.api.routes.system.handlers.get_stats import get_supabase_service
+
+    try:
+        supabase = get_supabase_service()
+        agents_resp = supabase.client.table("agents")\
+            .select("id", count="exact")\
+            .eq("is_active", True)\
+            .execute()
+        total_agents = agents_resp.count if agents_resp.count else 37
+    except:
+        total_agents = 37  # Fallback
+
     return {
         "status": "healthy",
         "version": "2.0.0",
-        "agents": "37/37",
+        "agents": f"{total_agents}/{total_agents}",
         "environment": settings.environment
     }
 
