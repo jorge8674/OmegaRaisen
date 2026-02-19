@@ -58,7 +58,7 @@ async def handle_generate_text(
         client = client_response.data[0]
 
         account_response = supabase.client.table("social_accounts")\
-            .select("platform, context")\
+            .select("platform")\
             .eq("id", request.social_account_id)\
             .execute()
 
@@ -72,12 +72,13 @@ async def handle_generate_text(
         user_tier = client.get("plan") or "pro_197"  # Default Pro
         platform = social_account["platform"]
 
-        context_data = social_account.get("context") or {}
-        audience = context_data.get("audience", "General")
-        tone = context_data.get("tone", "professional")
-        goal = context_data.get("goal", "engagement")
-        brand_voice = context_data.get("brand_voice")
-        keywords = context_data.get("keywords", [])
+        # Default context values (TODO: Fetch from context table if needed)
+        context_data = {}
+        audience = "General"
+        tone = "professional"
+        goal = "engagement"
+        brand_voice = None
+        keywords = []
 
         # 3. Construir prompts
         user_prompt = build_user_prompt(
