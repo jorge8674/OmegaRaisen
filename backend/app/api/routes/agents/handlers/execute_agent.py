@@ -9,10 +9,9 @@ import importlib
 
 from app.api.routes.agents.models import ExecuteAgentRequest, ExecutionResponse
 from app.domain.agents.entities import AgentExecution
-from app.domain.agents.context_entity import ClientContext
 from app.infrastructure.supabase_service import get_supabase_service
 from app.infrastructure.repositories.agent_repository import AgentRepository
-from app.infrastructure.repositories.client_context_repository import ClientContextRepository
+from .agent_helpers import save_to_client_context, execute_special_agent
 
 logger = logging.getLogger(__name__)
 
@@ -78,51 +77,58 @@ async def handle_execute_agent(
         execution.mark_as_running()
         repo.update_execution(execution)
 
+        # Special handling for orchestrator and client_context agents
+        if agent_id in ("orchestrator", "client_context"):
+            output = await execute_special_agent(agent_id, request)
+            execution.mark_as_completed(output)
+            repo.update_execution(execution)
+
         # Dynamic agent execution
-        try:
-            # Try to import and execute the agent
-            module_path = f"app.agents.{agent_id.replace('-', '_')}_agent"
+        else:
             try:
-                agent_module = importlib.import_module(module_path)
-                agent_class = getattr(agent_module, f"{agent_id.replace('-', '_').title().replace('_', '')}Agent")
-                agent_instance = agent_class()
+                # Try to import and execute the agent
+                module_path = f"app.agents.{agent_id.replace('-', '_')}_agent"
+                try:
+                    agent_module = importlib.import_module(module_path)
+                    agent_class = getattr(agent_module, f"{agent_id.replace('-', '_').title().replace('_', '')}Agent")
+                    agent_instance = agent_class()
 
-                # Execute agent (assumes execute method exists)
-                if hasattr(agent_instance, 'execute'):
-                    output = await agent_instance.execute(request.input_data)
-                else:
-                    output = {"message": "Agent executed", "result": "success"}
+                    # Execute agent (assumes execute method exists)
+                    if hasattr(agent_instance, 'execute'):
+                        output = await agent_instance.execute(request.input_data)
+                    else:
+                        output = {"message": "Agent executed", "result": "success"}
 
-            except (ImportError, AttributeError) as import_error:
-                logger.warning(f"Could not import agent {agent_id}: {import_error}")
-                # Fallback: return mock execution
-                output = {
-                    "agent_id": agent_id,
+                except (ImportError, AttributeError) as import_error:
+                    logger.warning(f"Could not import agent {agent_id}: {import_error}")
+                    # Fallback: return mock execution
+                    output = {
+                        "agent_id": agent_id,
                     "status": "executed",
                     "message": f"Agent '{agent.name}' executed successfully (mock)",
                     "input_received": request.input_data,
                 }
 
-            execution.mark_as_completed(output)
-            repo.update_execution(execution)
+                execution.mark_as_completed(output)
+                repo.update_execution(execution)
 
-            # Save to client_context if agent produces contextual learning
-            if agent_id in CONTEXT_AWARE_AGENTS and request.client_id:
-                await _save_to_client_context(
-                    supabase=supabase,
-                    agent_id=agent_id,
-                    client_id=request.client_id,
-                    output=output
-                )
+                # Save to client_context if agent produces contextual learning
+                if agent_id in CONTEXT_AWARE_AGENTS and request.client_id:
+                    await save_to_client_context(
+                        supabase=supabase,
+                        agent_id=agent_id,
+                        client_id=request.client_id,
+                        output=output
+                    )
 
-            logger.info(f"Agent '{agent_id}' executed successfully (execution_id={execution.id})")
+                logger.info(f"Agent '{agent_id}' executed successfully (execution_id={execution.id})")
 
-        except Exception as exec_error:
-            error_msg = str(exec_error)
-            execution.mark_as_failed(error_msg)
-            repo.update_execution(execution)
-            logger.error(f"Agent execution failed: {error_msg}")
-            raise HTTPException(500, f"Agent execution failed: {error_msg}")
+            except Exception as exec_error:
+                error_msg = str(exec_error)
+                execution.mark_as_failed(error_msg)
+                repo.update_execution(execution)
+                logger.error(f"Agent execution failed: {error_msg}")
+                raise HTTPException(500, f"Agent execution failed: {error_msg}")
 
         # Map to response DTO
         return ExecutionResponse(
@@ -147,51 +153,3 @@ async def handle_execute_agent(
     except Exception as e:
         logger.error(f"Error executing agent {agent_id}: {e}")
         raise HTTPException(500, f"Failed to execute agent: {str(e)}")
-
-
-async def _save_to_client_context(
-    supabase,
-    agent_id: str,
-    client_id: str,
-    output: dict
-) -> None:
-    """Save agent output to client_context for shared learning"""
-    try:
-        context_repo = ClientContextRepository(supabase)
-        context = context_repo.find_by_client_id(client_id)
-
-        if not context:
-            context = ClientContext(client_id=client_id)
-
-        # Update context based on agent type
-        if agent_id == "analytics":
-            context.update_analytics(
-                engagement_rate=output.get("avg_engagement_rate"),
-                peak_hours=output.get("peak_posting_hours"),
-                hashtags=output.get("top_hashtags"),
-                demographics=output.get("demographics")
-            )
-        elif agent_id == "brand_voice":
-            context.update_brand_voice(agent_id, output.get("brand_voice", {}))
-            if output.get("tone"):
-                context.tone = output.get("tone")
-        elif agent_id == "competitive_intelligence":
-            competitors = output.get("competitors", [])
-            for comp in competitors:
-                context.add_competitor(comp)
-        elif agent_id == "trend_hunter":
-            if output.get("top_hashtags"):
-                context.top_hashtags = output.get("top_hashtags", [])[:30]
-            if output.get("content_themes"):
-                context.content_themes = output.get("content_themes", [])
-        elif agent_id == "audience_insights":
-            context.audience_demographics = output.get("demographics", {})
-            if output.get("target_audience"):
-                context.target_audience = output.get("target_audience")
-
-        context.last_updated_by = agent_id
-        context_repo.upsert(context)
-        logger.info(f"Saved {agent_id} output to client_context for client {client_id}")
-
-    except Exception as e:
-        logger.warning(f"Failed to save to client_context: {e}")

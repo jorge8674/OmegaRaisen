@@ -11,6 +11,7 @@ from app.api.routes.content_lab.builders.prompt_builder import (
 )
 from app.services.llm.router import generate_content
 from app.infrastructure.supabase_service import get_supabase_service
+from app.infrastructure.repositories.client_context_repository import ClientContextRepository
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +89,31 @@ async def handle_generate_text(
             f"brief: {brief[:50]}..."
         )
 
-        # 2. Default context values (TODO: Fetch from context table if needed)
-        context_data = {}
-        audience = "General"
-        tone = "professional"
+        # 2. Load client context (enriched from ClientContextAgent)
+        context_repo = ClientContextRepository(supabase)
+        client_context = context_repo.find_by_client_id(client_id)
+
+        # Use context if available, otherwise defaults
+        if client_context and client_context.has_context():
+            audience = client_context.target_audience or "General"
+            tone = client_context.tone or "professional"
+            brand_voice = client_context.brand_voice
+            keywords = client_context.content_themes or []
+            context_data = {
+                "business_type": client_context.niche,
+                "preferred_formats": client_context.preferred_formats
+            }
+            logger.info(f"Using enriched context for client {client_id}")
+        else:
+            # Default context values
+            context_data = {}
+            audience = "General"
+            tone = "professional"
+            brand_voice = None
+            keywords = []
+            logger.info(f"No context found for client {client_id}, using defaults")
+
         goal = "engagement"
-        brand_voice = None
-        keywords = []
 
         # 3. Construir prompts
         user_prompt = build_user_prompt(
