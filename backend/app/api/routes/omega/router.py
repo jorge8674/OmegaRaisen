@@ -11,7 +11,8 @@ from .handlers import (
     handle_get_clients,
     handle_get_revenue,
     handle_get_activity,
-    handle_get_agents
+    handle_get_agents,
+    handle_get_org_chart
 )
 
 router = APIRouter(prefix="/omega", tags=["omega"])
@@ -62,3 +63,9 @@ async def get_activity(
 async def get_agents():
     """Get all agents organized by department with stats"""
     return await handle_get_agents()
+
+
+@router.get("/org-chart/")
+async def get_org_chart():
+    """Get OMEGA Company organizational chart with 45 agents"""
+    return await handle_get_org_chart()
