@@ -43,7 +43,8 @@ from app.api.routes import (
     content_lab,
     calendar,
     agents,
-    system
+    system,
+    omega
 )
 
 # Create FastAPI application
@@ -111,6 +112,7 @@ app.include_router(content_lab.router, prefix=settings.api_v1_prefix, tags=["Con
 app.include_router(calendar.router, prefix=settings.api_v1_prefix, tags=["Calendar 📅"])
 app.include_router(agents.router, prefix=settings.api_v1_prefix, tags=["Agents 🤖"])
 app.include_router(system.router, prefix=settings.api_v1_prefix, tags=["System 🔧"])
+app.include_router(omega.router, prefix=settings.api_v1_prefix, tags=["OMEGA Company 👑"])
 
 
 @app.get("/")
@@ -187,7 +189,6 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
             "type": type(exc).__name__
         }
     )
-
 
 if __name__ == "__main__":
     import uvicorn
