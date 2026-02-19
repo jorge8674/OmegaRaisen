@@ -14,9 +14,9 @@ class FalVideoAgent:
     """Agent for AI video generation using Fal.ai models"""
 
     MODEL_MAP = {
-        "kling": "fal-ai/kling-video/v2/standard/text-to-video",
+        "kling": "fal-ai/kling-video/v1.6/standard/text-to-video",
         "hunyuan": "fal-ai/hunyuan-video",
-        "wan": "fal-ai/wan-t2v"
+        "wan": "fal-ai/wan/t2v"
     }
 
     # Duration (seconds) → Frames mapping for Wan/Hunyuan
@@ -26,7 +26,8 @@ class FalVideoAgent:
     }
 
     def __init__(self):
-        fal_client.api_key = os.getenv("FAL_KEY")
+        # Set FAL_KEY as environment variable for fal_client
+        os.environ["FAL_KEY"] = os.getenv("FAL_KEY", "")
         self.default_model = "kling"
 
     async def execute(
