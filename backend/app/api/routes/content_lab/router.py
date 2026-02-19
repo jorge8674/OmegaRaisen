@@ -2,7 +2,7 @@
 Router principal de Content Lab.
 Filosofía: No velocity, only precision 🐢💎
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from .models import (
     GenerateTextRequest, GenerateTextResponse,
@@ -33,20 +33,22 @@ async def generate_text(
 
 @router.post("/generate-image/", response_model=GenerateImageResponse)
 async def generate_image(
-    request: GenerateImageRequest
+    account_id: str = Query(..., description="Social account UUID"),
+    prompt: str = Query(..., description="Image description"),
+    style: str = Query(default="realistic", description="Image style: realistic, cartoon, minimal")
 ) -> GenerateImageResponse:
     """
-    Genera imagen usando modelo apropiado según tier.
+    Genera imagen usando DALL-E 3
 
-    - **client_id**: ID del cliente
-    - **social_account_id**: ID de la cuenta social
+    Frontend envía query params (no body):
+    - **account_id**: Social account UUID
     - **prompt**: Descripción de la imagen
-    - **style**: realistic, cartoon, minimal
+    - **style**: realistic, cartoon, minimal (default: realistic)
 
     Returns URL de imagen + metadata.
     """
-    # TODO: Implementar handler de imagen
-    raise HTTPException(501, "Image generation en desarrollo")
+    from .handlers.generate_image import handle_generate_image
+    return await handle_generate_image(account_id, prompt, style)
 
 
 @router.get("/", response_model=ContentListResponse)
