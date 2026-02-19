@@ -80,7 +80,7 @@ class ClientContextAgent:
         client_resp = self.supabase.client.table("clients")\
             .select("*")\
             .eq("id", client_id)\
-            .single()\
+            .limit(1)\
             .execute()
 
         # Get social accounts
@@ -108,7 +108,7 @@ class ClientContextAgent:
             .execute()
 
         return {
-            "client": client_resp.data if client_resp.data else None,
+            "client": client_resp.data[0] if client_resp.data else None,
             "social_accounts": accounts_resp.data or [],
             "recent_content": content_resp.data or [],
             "scheduled_posts": posts_resp.data or []
