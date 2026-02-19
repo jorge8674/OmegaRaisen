@@ -129,8 +129,7 @@ async def handle_generate_video_fal(
             "provider": "fal",
             "model": result.get("model_id", model),
             "tokens_used": 0,
-            "is_saved": False,
-            "is_active": True
+            "is_saved": False
         }
 
         save_resp = supabase.client.table("content_lab_generated")\
