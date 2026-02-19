@@ -7,7 +7,7 @@ from datetime import date, time, datetime
 from typing import Optional
 from dataclasses import dataclass
 
-from .types import ContentType, Status
+from .types import Status
 
 
 @dataclass
@@ -27,7 +27,7 @@ class ScheduledPost:
     content_lab_id: Optional[str] = None
 
     # Content
-    content_type: ContentType = "post"
+    content_type: str = "post"
     text_content: str = ""
     image_url: Optional[str] = None
     hashtags: list[str] = None
@@ -117,8 +117,8 @@ class ScheduledPost:
         if not self.text_content:
             errors.append("text_content is required")
 
-        if self.content_type not in ["post", "story", "reel", "carousel"]:
-            errors.append(f"Invalid content_type: {self.content_type}")
+        if not self.content_type:
+            errors.append("content_type is required")
 
         if not self.scheduled_date:
             errors.append("scheduled_date is required")

@@ -7,14 +7,14 @@ from typing import Optional, List
 from datetime import date, time
 from pydantic import BaseModel, Field
 
-from app.domain.calendar.types import ContentType, Status
+from app.domain.calendar.types import Status
 
 
 class ScheduledPostCreate(BaseModel):
     """DTO for creating scheduled post"""
     account_id: str = Field(..., description="Social account UUID")
     content_lab_id: Optional[str] = Field(None, description="Content Lab reference")
-    content_type: ContentType = Field(..., description="Type of content")
+    content_type: str = Field(..., description="Type of content (post, story, email, bio, etc.)")
     text_content: str = Field(..., min_length=1, max_length=5000)
     image_url: Optional[str] = Field(None, description="Image URL if applicable")
     hashtags: List[str] = Field(default_factory=list)
@@ -37,7 +37,7 @@ class ScheduledPostCreate(BaseModel):
 
 class ScheduledPostUpdate(BaseModel):
     """DTO for updating scheduled post"""
-    content_type: Optional[ContentType] = None
+    content_type: Optional[str] = None
     text_content: Optional[str] = Field(None, min_length=1, max_length=5000)
     image_url: Optional[str] = None
     hashtags: Optional[List[str]] = None
@@ -62,7 +62,7 @@ class ScheduledPostResponse(BaseModel):
     client_id: str
     account_id: str
     content_lab_id: Optional[str] = None
-    content_type: ContentType
+    content_type: str
     text_content: str
     image_url: Optional[str] = None
     hashtags: List[str]
