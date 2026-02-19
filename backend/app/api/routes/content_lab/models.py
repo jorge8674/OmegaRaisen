@@ -10,16 +10,16 @@ from app.domain.llm.types import ContentType
 
 class GenerateTextRequest(BaseModel):
     """Request para generación de texto."""
-    client_id: int = Field(..., description="ID del cliente")
-    social_account_id: int = Field(..., description="ID de cuenta social")
+    client_id: str = Field(..., description="ID del cliente (UUID)")
+    social_account_id: str = Field(..., description="ID de cuenta social (UUID)")
     content_type: ContentType = Field(..., description="Tipo de contenido")
     brief: str = Field(..., min_length=1, description="Brief del usuario")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "client_id": 123,
-                "social_account_id": 456,
+                "client_id": "bd68ca50-b8ef-4240-a0ce-44df58f53171",
+                "social_account_id": "cb1dfe0a-43a2-4e9b-9099-df6035f76700",
                 "content_type": "caption",
                 "brief": "Post sobre nuestro nuevo producto"
             }
@@ -50,8 +50,8 @@ class GenerateTextResponse(BaseModel):
 
 class GenerateImageRequest(BaseModel):
     """Request para generación de imágenes."""
-    client_id: int = Field(..., description="ID del cliente")
-    social_account_id: int = Field(..., description="ID de cuenta social")
+    client_id: str = Field(..., description="ID del cliente (UUID)")
+    social_account_id: str = Field(..., description="ID de cuenta social (UUID)")
     prompt: str = Field(..., min_length=1, description="Descripción de la imagen")
     style: str = Field(
         default="realistic",
@@ -61,8 +61,8 @@ class GenerateImageRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "client_id": 123,
-                "social_account_id": 456,
+                "client_id": "bd68ca50-b8ef-4240-a0ce-44df58f53171",
+                "social_account_id": "cb1dfe0a-43a2-4e9b-9099-df6035f76700",
                 "prompt": "Producto tecnológico moderno sobre fondo blanco",
                 "style": "realistic"
             }
