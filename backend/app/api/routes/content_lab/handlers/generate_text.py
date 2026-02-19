@@ -2,42 +2,43 @@
 Handler de generación de texto para Content Lab.
 Filosofía: No velocity, only precision 🐢💎
 """
+from typing import Dict, Any
 from fastapi import HTTPException
 import logging
 
-from app.api.routes.content_lab.models import (
-    GenerateTextRequest, GenerateTextResponse
-)
 from app.api.routes.content_lab.builders.prompt_builder import (
     build_user_prompt, build_system_prompt
 )
 from app.services.llm.router import generate_content
-from app.domain.llm.types import ContentType, UserTier
 from app.infrastructure.supabase_service import get_supabase_service
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_generate_text(
-    request: GenerateTextRequest
-) -> GenerateTextResponse:
+    account_id: str,
+    content_type: str,
+    brief: str,
+    language: str = "es"
+) -> dict:
     """
     Handler HTTP para generación de texto.
 
     Workflow:
-    1. Validar request
-    2. Obtener contexto del cliente desde DB
-    3. Construir prompts (user + system)
-    4. Llamar al router LLM
-    5. Guardar resultado en DB
-    6. Retornar response
+    1. Obtener client_id y contexto desde account_id
+    2. Construir prompts (user + system)
+    3. Llamar al router LLM
+    4. Guardar resultado en DB
+    5. Retornar response en formato flat
 
     Args:
-        request: Request con brief, client_id, social_account_id, etc.
-        db: Sesión de base de datos
+        account_id: Social account UUID
+        content_type: Tipo de contenido (caption, story, etc.)
+        brief: Brief del usuario
+        language: Idioma (default: es)
 
     Returns:
-        GenerateTextResponse con contenido generado
+        Dict con generated_text, content_type, provider, model, cached, tokens_used
 
     Raises:
         HTTPException: Si falla validación o generación
@@ -46,33 +47,26 @@ async def handle_generate_text(
         # Get Supabase client
         supabase = get_supabase_service()
 
-        # 1. Obtener contexto del cliente desde DB
-        client_response = supabase.client.table("clients")\
-            .select("name, plan")\
-            .eq("id", request.client_id)\
-            .execute()
-
-        if not client_response.data:
-            raise HTTPException(404, "Cliente no encontrado")
-
-        client = client_response.data[0]
-
+        # 1. Obtener client_id y contexto desde account_id
         account_response = supabase.client.table("social_accounts")\
-            .select("platform")\
-            .eq("id", request.social_account_id)\
+            .select("client_id, platform, clients!inner(name, plan)")\
+            .eq("id", account_id)\
             .execute()
 
         if not account_response.data:
-            raise HTTPException(404, "Cuenta social no encontrada")
+            raise HTTPException(404, f"Social account {account_id} not found")
 
-        social_account = account_response.data[0]
+        account = account_response.data[0]
+        client_id = account["client_id"]
+        client_name = account["clients"]["name"]
+        user_tier = plan  # Use plan directly as user_tier
 
-        # 2. Extraer contexto
-        client_name = client["name"]
-        user_tier = client.get("plan") or "pro_197"  # Default Pro
-        platform = social_account["platform"]
+        logger.info(
+            f"Generating {content_type} for {client_name} ({user_tier}) - "
+            f"brief: {brief[:50]}..."
+        )
 
-        # Default context values (TODO: Fetch from context table if needed)
+        # 2. Default context values (TODO: Fetch from context table if needed)
         context_data = {}
         audience = "General"
         tone = "professional"
@@ -82,8 +76,8 @@ async def handle_generate_text(
 
         # 3. Construir prompts
         user_prompt = build_user_prompt(
-            content_type=request.content_type,
-            brief=request.brief,
+            content_type=content_type,
+            brief=brief,
             platform=platform,
             audience=audience,
             tone=tone,
@@ -99,18 +93,17 @@ async def handle_generate_text(
 
         # 4. Llamar al router LLM
         llm_response = await generate_content(
-            content_type=request.content_type,
+            content_type=content_type,
             user_tier=user_tier,
             prompt=user_prompt,
             system_prompt=system_prompt
         )
 
         # 5. Guardar en DB
-        # TODO: Usar repository pattern
         supabase.client.table("content_lab_generated").insert({
-            "client_id": request.client_id,
-            "social_account_id": request.social_account_id,
-            "content_type": request.content_type,
+            "client_id": client_id,
+            "social_account_id": account_id,
+            "content_type": content_type,
             "content": llm_response.content,
             "provider": llm_response.provider,
             "model": llm_response.model,
@@ -118,20 +111,19 @@ async def handle_generate_text(
         }).execute()
 
         logger.info(
-            f"Generated {request.content_type} for client {request.client_id} "
+            f"Generated {content_type} for client {client_id} "
             f"via {llm_response.provider}/{llm_response.model}"
         )
 
-        # 6. Retornar response
-        return GenerateTextResponse(
-            content=llm_response.content,
-            metadata={
-                "provider": llm_response.provider,
-                "model": llm_response.model,
-                "cached": llm_response.cached,
-                "tokens_used": llm_response.tokens_used
-            }
-        )
+        # 6. Retornar response en formato flat (igual que imagen)
+        return {
+            "generated_text": llm_response.content,
+            "content_type": content_type,
+            "provider": llm_response.provider,
+            "model": llm_response.model,
+            "cached": llm_response.cached,
+            "tokens_used": llm_response.tokens_used
+        }
 
     except HTTPException:
         raise

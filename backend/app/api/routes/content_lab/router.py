@@ -5,7 +5,6 @@ Filosofía: No velocity, only precision 🐢💎
 from fastapi import APIRouter, Query
 
 from .models import (
-    GenerateTextRequest, GenerateTextResponse,
     ContentListResponse, SaveContentResponse, DeleteContentResponse
 )
 from .handlers import (
@@ -19,21 +18,25 @@ from .handlers import (
 router = APIRouter(prefix="/content-lab", tags=["content-lab"])
 
 
-@router.post("/generate/", response_model=GenerateTextResponse)
+@router.post("/generate/")
 async def generate_text(
-    request: GenerateTextRequest
-) -> GenerateTextResponse:
+    account_id: str = Query(..., description="Social account UUID"),
+    content_type: str = Query(..., description="Content type: caption, story, etc."),
+    brief: str = Query(..., description="User instructions"),
+    language: str = Query(default="es", description="Language: es, en, etc.")
+):
     """
     Genera contenido de texto usando LLM apropiado según tier.
 
-    - **client_id**: ID del cliente
-    - **social_account_id**: ID de la cuenta social
+    Frontend envía query params (no body):
+    - **account_id**: Social account UUID
     - **content_type**: caption, script, hashtags, story, ad, bio, email
     - **brief**: Instrucciones específicas del usuario
+    - **language**: Idioma (default: es)
 
-    Returns contenido generado + metadata (provider, model, tokens).
+    Returns flat object con generated_text, content_type, provider, model, cached, tokens_used.
     """
-    return await handle_generate_text(request)
+    return await handle_generate_text(account_id, content_type, brief, language)
 
 
 @router.post("/generate-image/")
