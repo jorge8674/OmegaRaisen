@@ -92,7 +92,7 @@ class ClientContextAgent:
 
         # Get recent generated content
         content_resp = self.supabase.client.table("content_lab_generated")\
-            .select("content_type, generated_text, engagement_prediction")\
+            .select("content_type, content, provider")\
             .eq("client_id", client_id)\
             .order("created_at", desc=True)\
             .limit(20)\
@@ -139,8 +139,8 @@ class ClientContextAgent:
         return f"""Analyze this client's social media presence and extract key context.
 
 CLIENT INFO:
-- Name: {client.get('business_name', 'N/A')}
-- Industry: {client.get('industry', 'Unknown')}
+- Name: {client.get('name', 'N/A')}
+- Company: {client.get('company', 'N/A')}
 
 RECENT CONTENT ({len(content)} pieces):
 {json.dumps(content[:5], indent=2)}
@@ -169,7 +169,7 @@ Be concise and data-driven."""
         """Fallback: Extract basic context without LLM"""
         client = data["client"]
         return {
-            "niche": client.get("industry", "general"),
+            "niche": client.get("company", "general"),
             "tone": "professional",
             "brand_voice": {},
             "target_audience": "general audience",
