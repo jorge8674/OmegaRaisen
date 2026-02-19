@@ -44,7 +44,8 @@ from app.api.routes import (
     calendar,
     agents,
     system,
-    omega
+    omega,
+    nova
 )
 
 # Create FastAPI application
@@ -113,6 +114,7 @@ app.include_router(calendar.router, prefix=settings.api_v1_prefix, tags=["Calend
 app.include_router(agents.router, prefix=settings.api_v1_prefix, tags=["Agents 🤖"])
 app.include_router(system.router, prefix=settings.api_v1_prefix, tags=["System 🔧"])
 app.include_router(omega.router, prefix=settings.api_v1_prefix, tags=["OMEGA Company 👑"])
+app.include_router(nova.router, prefix=settings.api_v1_prefix, tags=["NOVA 👑"])
 
 
 @app.get("/")
