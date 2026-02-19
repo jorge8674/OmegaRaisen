@@ -44,6 +44,16 @@ async def handle_generate_text(
         HTTPException: Si falla validación o generación
     """
     try:
+        # Normalize content_type aliases (frontend may send variations)
+        CONTENT_TYPE_MAP = {
+            "reel_script": "reel",
+            "reel_tiktok": "reel",
+            "ad": "anuncio",
+            "hashtag": "hashtags",
+            "topic": "hashtags",  # Frontend sometimes sends "topic" for hashtags
+        }
+        content_type = CONTENT_TYPE_MAP.get(content_type, content_type)
+
         # Get Supabase client
         supabase = get_supabase_service()
 
