@@ -116,13 +116,13 @@ class ContentListResponse(BaseModel):
 
 class SaveContentResponse(BaseModel):
     """Response de guardar contenido."""
-    id: int = Field(..., description="ID del contenido")
+    id: str = Field(..., description="ID del contenido (UUID)")
     saved: bool = Field(..., description="Estado de guardado")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "id": 123,
+                "id": "550e8400-e29b-41d4-a716-446655440000",
                 "saved": True
             }
         }
@@ -130,13 +130,13 @@ class SaveContentResponse(BaseModel):
 
 class DeleteContentResponse(BaseModel):
     """Response de eliminar contenido."""
-    id: int = Field(..., description="ID del contenido eliminado")
+    id: str = Field(..., description="ID del contenido eliminado (UUID)")
     deleted: bool = Field(..., description="Confirmación de eliminación")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "id": 123,
+                "id": "550e8400-e29b-41d4-a716-446655440000",
                 "deleted": True
             }
         }

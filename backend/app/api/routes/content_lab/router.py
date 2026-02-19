@@ -53,7 +53,7 @@ async def generate_image(
 
 @router.get("/", response_model=ContentListResponse)
 async def list_content(
-    client_id: int,
+    client_id: str,
     content_type: str = None,
     limit: int = 20,
     offset: int = 0
@@ -61,7 +61,7 @@ async def list_content(
     """
     Lista contenido generado para un cliente.
 
-    - **client_id**: ID del cliente
+    - **client_id**: ID del cliente (UUID)
     - **content_type**: Filtrar por tipo (opcional)
     - **limit**: Máximo de resultados (default: 20)
     - **offset**: Offset para paginación (default: 0)
@@ -74,12 +74,12 @@ async def list_content(
 
 @router.patch("/{content_id}/save/", response_model=SaveContentResponse)
 async def save_content(
-    content_id: int
+    content_id: str
 ) -> SaveContentResponse:
     """
     Toggle estado de guardado de contenido.
 
-    - **content_id**: ID del contenido
+    - **content_id**: ID del contenido (UUID)
 
     Returns ID + estado de guardado.
     """
@@ -89,12 +89,12 @@ async def save_content(
 
 @router.delete("/{content_id}/", response_model=DeleteContentResponse)
 async def delete_content(
-    content_id: int
+    content_id: str
 ) -> DeleteContentResponse:
     """
     Elimina contenido generado.
 
-    - **content_id**: ID del contenido a eliminar
+    - **content_id**: ID del contenido a eliminar (UUID)
 
     Returns confirmación de eliminación.
     """
