@@ -24,13 +24,13 @@ class ClientContextRepository:
         response = self.supabase.client.table("client_context")\
             .select("*")\
             .eq("client_id", client_id)\
-            .single()\
+            .limit(1)\
             .execute()
 
-        if not response.data:
+        if not response.data or len(response.data) == 0:
             return None
 
-        return self._map_to_entity(response.data)
+        return self._map_to_entity(response.data[0])
 
     def create(self, context: ClientContext) -> ClientContext:
         """Create new client context"""
