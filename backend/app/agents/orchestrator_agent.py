@@ -25,24 +25,29 @@ class OrchestratorAgent:
         "full_analysis": ["client_context", "competitive_intelligence", "trend_hunter"],
     }
 
-    def __init__(self):
-        self.supabase = get_supabase_service()
-        self.context_repo = ClientContextRepository(self.supabase)
-        self.agent_repo = AgentRepository(self.supabase)
-        self.client_context_agent = ClientContextAgent()
+    def __init__(self, lazy: bool = False):
+        if not lazy:
+            self.supabase = get_supabase_service()
+            self.context_repo = ClientContextRepository(self.supabase)
+            self.agent_repo = AgentRepository(self.supabase)
+            self.client_context_agent = ClientContextAgent()
+        else:
+            self.supabase = None
+            self.context_repo = None
+            self.agent_repo = None
+            self.client_context_agent = None
+
+    def _ensure_initialized(self):
+        """Initialize connections if not already initialized"""
+        if self.supabase is None:
+            self.supabase = get_supabase_service()
+            self.context_repo = ClientContextRepository(self.supabase)
+            self.agent_repo = AgentRepository(self.supabase)
+            self.client_context_agent = ClientContextAgent()
 
     async def route(self, trigger: str, client_id: str, input_data: dict) -> dict:
-        """
-        Route execution through agent chain
-
-        Args:
-            trigger: Chain to execute (content_generation, hashtag_generation, etc.)
-            client_id: Client UUID
-            input_data: Input data for the chain
-
-        Returns:
-            dict with final output and chain metadata
-        """
+        """Route execution through agent chain"""
+        self._ensure_initialized()
         try:
             # Validate chain exists
             if trigger not in self.CHAINS:
@@ -152,24 +157,16 @@ class OrchestratorAgent:
 
     def get_available_chains(self) -> dict:
         """Return available execution chains"""
-        return {
-            trigger: {
-                "agents": chain,
-                "description": self._get_chain_description(trigger)
-            }
-            for trigger, chain in self.CHAINS.items()
-        }
-
-    @staticmethod
-    def _get_chain_description(trigger: str) -> str:
-        """Get description for a chain"""
-        descriptions = {
+        descs = {
             "content_generation": "Analyze client context and generate personalized content",
             "hashtag_generation": "Generate hashtags based on client's niche and trends",
             "brand_analysis": "Analyze and maintain brand voice consistency",
-            "full_analysis": "Complete analysis: context, competition, and trends",
+            "full_analysis": "Complete analysis: context, competition, and trends"
         }
-        return descriptions.get(trigger, "No description available")
+        return {
+            trigger: {"agents": chain, "description": descs.get(trigger, "No description")}
+            for trigger, chain in self.CHAINS.items()
+        }
 
     async def execute(self, params: dict) -> dict:
         """
@@ -194,5 +191,5 @@ class OrchestratorAgent:
         }
 
 
-# Export singleton instance for backward compatibility
-orchestrator_agent = OrchestratorAgent()
+# Export singleton instance with lazy initialization to prevent blocking imports
+orchestrator_agent = OrchestratorAgent(lazy=True)
