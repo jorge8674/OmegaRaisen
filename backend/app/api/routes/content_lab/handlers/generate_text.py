@@ -61,7 +61,17 @@ async def handle_generate_text(
         client_name = account["clients"]["name"]
         plan = account["clients"].get("plan") or "pro_197"
         platform = account["platform"]
-        user_tier = plan  # Use plan directly as user_tier
+
+        # Normalize plan to match LLM_TIERS keys
+        plan_map = {
+            "basico": "basico_97",
+            "pro": "pro_197",
+            "enterprise": "enterprise_497",
+            "basico_97": "basico_97",
+            "pro_197": "pro_197",
+            "enterprise_497": "enterprise_497"
+        }
+        user_tier = plan_map.get(plan, "pro_197")  # Default to pro_197
 
         logger.info(
             f"Generating {content_type} for {client_name} ({user_tier}) - "
