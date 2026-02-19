@@ -40,23 +40,24 @@ async def schedule_post(request: ScheduledPostCreate) -> ScheduledPostResponse:
 
 @router.get("/", response_model=ScheduledPostListResponse)
 async def list_posts(
-    account_id: str = Query(None, description="Social account UUID (optional if client_id provided)"),
-    client_id: str = Query(None, description="Client UUID - returns posts from all client's accounts"),
+    account_id: str = Query(None, description="Social account UUID"),
+    client_id: str = Query(None, description="Client UUID"),
+    user_id: str = Query(None, description="User UUID - returns posts from all user's clients"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     status: str = Query(None, description="Filter by status: draft, scheduled, published, failed")
 ) -> ScheduledPostListResponse:
     """
-    List scheduled posts for an account or client
+    List scheduled posts - provide ONE of: account_id, client_id, or user_id
 
-    Provide either account_id OR client_id:
-    - **account_id**: Get posts for specific social account
-    - **client_id**: Get posts from ALL accounts of this client
+    **account_id**: Posts for specific social account
+    **client_id**: Posts from all accounts of this client
+    **user_id**: Posts from all clients owned by this user (auto-discovers clients)
 
     Returns paginated list ordered by scheduled date/time.
     Optional status filter to show only posts in a specific state.
     """
-    return await handle_list_posts(account_id, client_id, limit, offset, status)
+    return await handle_list_posts(account_id, client_id, user_id, limit, offset, status)
 
 
 @router.patch("/{post_id}/", response_model=ScheduledPostResponse)

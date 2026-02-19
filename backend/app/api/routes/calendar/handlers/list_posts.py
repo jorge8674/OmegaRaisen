@@ -16,16 +16,18 @@ logger = logging.getLogger(__name__)
 async def handle_list_posts(
     account_id: str = None,
     client_id: str = None,
+    user_id: str = None,
     limit: int = 20,
     offset: int = 0,
     status: str = None
 ) -> ScheduledPostListResponse:
     """
-    List scheduled posts for an account or client
+    List scheduled posts for an account, client, or user
 
     Args:
-        account_id: Social account UUID (optional if client_id provided)
-        client_id: Client UUID (optional if account_id provided)
+        account_id: Social account UUID
+        client_id: Client UUID
+        user_id: User UUID (auto-discovers all clients owned by user)
         limit: Max results per page
         offset: Pagination offset
         status: Optional status filter (draft, scheduled, published, etc.)
@@ -34,31 +36,52 @@ async def handle_list_posts(
         ScheduledPostListResponse with paginated results
 
     Raises:
-        HTTPException 400: If neither account_id nor client_id provided
+        HTTPException 400: If no ID provided
+        HTTPException 404: If user_id has no clients
         HTTPException 500: If query fails
     """
     try:
         # Validate: at least one ID must be provided
-        if not account_id and not client_id:
+        if not account_id and not client_id and not user_id:
             raise HTTPException(
                 400,
-                "Either account_id or client_id must be provided"
+                "Either account_id, client_id, or user_id must be provided"
             )
 
         # Get services
         supabase = get_supabase_service()
         repo = ScheduledPostRepository(supabase)
 
+        # If user_id provided, find all their clients first
+        client_ids = []
+        if user_id:
+            clients_response = supabase.client.table("clients")\
+                .select("id")\
+                .eq("user_id", user_id)\
+                .eq("is_active", True)\
+                .execute()
+
+            if not clients_response.data:
+                raise HTTPException(
+                    404,
+                    f"No active clients found for user {user_id}"
+                )
+
+            client_ids = [c["id"] for c in clients_response.data]
+            logger.info(f"Found {len(client_ids)} clients for user {user_id}")
+
         # Build base query
         query = supabase.client.table("scheduled_posts")\
             .select("*")\
             .eq("is_active", True)
 
-        # Filter by account_id OR client_id
+        # Filter by account_id, client_id, OR client_ids (from user_id)
         if account_id:
             query = query.eq("account_id", account_id)
         elif client_id:
             query = query.eq("client_id", client_id)
+        elif client_ids:
+            query = query.in_("client_id", client_ids)
 
         # Add status filter if provided
         if status:
@@ -82,6 +105,8 @@ async def handle_list_posts(
             count_query = count_query.eq("account_id", account_id)
         elif client_id:
             count_query = count_query.eq("client_id", client_id)
+        elif client_ids:
+            count_query = count_query.in_("client_id", client_ids)
 
         if status:
             count_query = count_query.eq("status", status)
