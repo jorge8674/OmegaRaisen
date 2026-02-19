@@ -10,7 +10,8 @@ from .handlers import (
     handle_get_resellers,
     handle_get_clients,
     handle_get_revenue,
-    handle_get_activity
+    handle_get_activity,
+    handle_get_agents
 )
 
 router = APIRouter(prefix="/omega", tags=["omega"])
@@ -55,3 +56,9 @@ async def get_activity(
 ):
     """Get recent activity feed"""
     return await handle_get_activity(limit)
+
+
+@router.get("/agents/")
+async def get_agents():
+    """Get all agents organized by department with stats"""
+    return await handle_get_agents()

@@ -34,43 +34,21 @@ async def handle_get_omega_dashboard() -> Dict[str, Any]:
         first_of_month = today.replace(day=1).isoformat()
 
         # 1. Stripe Revenue Data
-        mrr = 0
-        total_revenue = 0
+        mrr, total_revenue = 0, 0
         try:
-            # Get active subscriptions for MRR
-            subscriptions = stripe.Subscription.list(status='active', limit=100)
-            mrr = sum(
-                sub.plan.amount / 100 for sub in subscriptions.data
-                if sub.plan.interval == 'month'
-            )
-
-            # Get total revenue from charges
+            subs = stripe.Subscription.list(status='active', limit=100)
+            mrr = sum(s.plan.amount / 100 for s in subs.data if s.plan.interval == 'month')
             charges = stripe.Charge.list(limit=100)
             total_revenue = sum(c.amount / 100 for c in charges.data if c.paid)
         except Exception as e:
             logger.warning(f"Stripe data unavailable: {e}")
-
         # 2. Resellers Stats
-        resellers_resp = supabase.client.table("resellers")\
-            .select("*")\
-            .execute()
-        resellers_data = resellers_resp.data or []
-
+        resellers_data = (supabase.client.table("resellers").select("*").execute()).data or []
         active_resellers = [r for r in resellers_data if r.get("status") == "active"]
         trial_resellers = [r for r in resellers_data if r.get("status") == "trial"]
-
         # 3. Clients Stats
-        clients_resp = supabase.client.table("clients")\
-            .select("id, reseller_id, created_at, status")\
-            .neq("status", "deleted")\
-            .execute()
-        clients_data = clients_resp.data or []
-
-        new_clients_month = [
-            c for c in clients_data
-            if c.get("created_at", "")[:10] >= first_of_month
-        ]
-
+        clients_data = (supabase.client.table("clients").select("id, reseller_id, created_at, status").neq("status", "deleted").execute()).data or []
+        new_clients_month = [c for c in clients_data if c.get("created_at", "")[:10] >= first_of_month]
         # Clients by reseller
         by_reseller = {}
         for c in clients_data:
@@ -78,68 +56,40 @@ async def handle_get_omega_dashboard() -> Dict[str, Any]:
             by_reseller[rid] = by_reseller.get(rid, 0) + 1
 
         # 4. Content Stats
-        content_resp = supabase.client.table("content_lab_generated")\
-            .select("id, content_type, created_at")\
-            .execute()
-        content_data = content_resp.data or []
-
-        content_month = [
-            c for c in content_data
-            if c.get("created_at", "")[:10] >= first_of_month
-        ]
-
+        content_data = (supabase.client.table("content_lab_generated").select("id, content_type, created_at").execute()).data or []
+        content_month = [c for c in content_data if c.get("created_at", "")[:10] >= first_of_month]
         by_type = {}
         for c in content_data:
             ctype = c.get("content_type", "unknown")
             by_type[ctype] = by_type.get(ctype, 0) + 1
-
         videos_total = by_type.get("video", 0)
-
         # 5. Agents Stats
-        exec_resp = supabase.client.table("agent_executions")\
-            .select("id, status, started_at")\
-            .execute()
-        exec_data = exec_resp.data or []
-
-        exec_month = [
-            e for e in exec_data
-            if e.get("started_at", "")[:10] >= first_of_month
-        ]
-
+        exec_data = (supabase.client.table("agent_executions").select("id, status, started_at").execute()).data or []
+        exec_month = [e for e in exec_data if e.get("started_at", "")[:10] >= first_of_month]
         successful = sum(1 for e in exec_data if e.get("status") == "completed")
         success_rate = round((successful / len(exec_data)) * 100, 1) if exec_data else 0
-
         # 6. Social Accounts
-        accounts_resp = supabase.client.table("social_accounts")\
-            .select("id, platform, is_active")\
-            .eq("is_active", True)\
-            .execute()
-        accounts_data = accounts_resp.data or []
-
+        accounts_data = (supabase.client.table("social_accounts").select("id, platform, is_active").eq("is_active", True).execute()).data or []
         by_platform = {}
         for acc in accounts_data:
             platform = acc.get("platform", "unknown")
             by_platform[platform] = by_platform.get(platform, 0) + 1
-
         # 7. Scheduled Posts
-        posts_resp = supabase.client.table("scheduled_posts")\
-            .select("id, status, scheduled_date")\
-            .eq("is_active", True)\
-            .execute()
-        posts_data = posts_resp.data or []
-
+        posts_data = (supabase.client.table("scheduled_posts").select("id, status, scheduled_date").eq("is_active", True).execute()).data or []
         scheduled = [p for p in posts_data if p.get("status") == "scheduled"]
-        published_month = [
-            p for p in posts_data
-            if p.get("status") == "published" and p.get("scheduled_date", "")[:10] >= first_of_month
-        ]
-
+        published_month = [p for p in posts_data if p.get("status") == "published" and p.get("scheduled_date", "")[:10] >= first_of_month]
         next_7days = (today + timedelta(days=7)).isoformat()
-        upcoming = [
-            p for p in scheduled
-            if today.isoformat() <= p.get("scheduled_date", "")[:10] <= next_7days
-        ]
-
+        upcoming = [p for p in scheduled if today.isoformat() <= p.get("scheduled_date", "")[:10] <= next_7days]
+        # 8. Agents Detail
+        agents_detail_data = (supabase.client.table("agents").select("id, agent_id, name, department, status").eq("is_active", True).order("department").execute()).data or []
+        by_department = {}
+        for agent in agents_detail_data:
+            dept = agent.get("department", "unknown")
+            if dept not in by_department:
+                by_department[dept] = []
+            by_department[dept].append(agent)
+        active_agents_count = sum(1 for a in agents_detail_data if a.get("status") == "active")
+        running_agents_count = sum(1 for a in agents_detail_data if a.get("status") == "running")
         logger.info(f"OMEGA Dashboard: {len(resellers_data)} resellers, {len(clients_data)} clients")
 
         return {
@@ -173,6 +123,12 @@ async def handle_get_omega_dashboard() -> Dict[str, Any]:
                 "executions_total": len(exec_data),
                 "executions_this_month": len(exec_month),
                 "success_rate": success_rate
+            },
+            "agents_detail": {
+                "total": len(agents_detail_data),
+                "by_department": by_department,
+                "active_count": active_agents_count,
+                "running_count": running_agents_count
             },
             "social_accounts": {
                 "total": len(accounts_data),
