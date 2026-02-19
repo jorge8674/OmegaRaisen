@@ -2,14 +2,19 @@
 Router principal de Content Lab.
 Filosofía: No velocity, only precision 🐢💎
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 from .models import (
     GenerateTextRequest, GenerateTextResponse,
-    GenerateImageRequest, GenerateImageResponse,
     ContentListResponse, SaveContentResponse, DeleteContentResponse
 )
-from .handlers.generate_text import handle_generate_text
+from .handlers import (
+    handle_generate_text,
+    handle_generate_image,
+    handle_list_content,
+    handle_save_content,
+    handle_delete_content
+)
 
 router = APIRouter(prefix="/content-lab", tags=["content-lab"])
 
@@ -47,7 +52,6 @@ async def generate_image(
 
     Returns flat object con generated_text (URL), content_type, provider, model, cached, tokens_used.
     """
-    from .handlers.generate_image import handle_generate_image
     return await handle_generate_image(account_id, prompt, style)
 
 
@@ -68,8 +72,7 @@ async def list_content(
 
     Returns lista de contenido + total.
     """
-    # TODO: Implementar handler de listado
-    raise HTTPException(501, "List content en desarrollo")
+    return await handle_list_content(client_id, content_type, limit, offset)
 
 
 @router.patch("/{content_id}/save/", response_model=SaveContentResponse)
@@ -83,8 +86,7 @@ async def save_content(
 
     Returns ID + estado de guardado.
     """
-    # TODO: Implementar handler de guardado
-    raise HTTPException(501, "Save content en desarrollo")
+    return await handle_save_content(content_id)
 
 
 @router.delete("/{content_id}/", response_model=DeleteContentResponse)
@@ -98,5 +100,4 @@ async def delete_content(
 
     Returns confirmación de eliminación.
     """
-    # TODO: Implementar handler de eliminación
-    raise HTTPException(501, "Delete content en desarrollo")
+    return await handle_delete_content(content_id)
