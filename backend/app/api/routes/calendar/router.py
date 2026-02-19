@@ -1,0 +1,76 @@
+"""
+Calendar Router
+FastAPI REST endpoints for scheduled posts
+Filosofía: No velocity, only precision 🐢💎
+"""
+from fastapi import APIRouter, Query
+
+from .models import (
+    ScheduledPostCreate,
+    ScheduledPostUpdate,
+    ScheduledPostResponse,
+    ScheduledPostListResponse,
+    DeleteResponse
+)
+from .handlers import (
+    handle_schedule_post,
+    handle_list_posts,
+    handle_update_post,
+    handle_delete_post
+)
+
+router = APIRouter(prefix="/calendar", tags=["Calendar 📅"])
+
+
+@router.post("/schedule/", response_model=ScheduledPostResponse, status_code=201)
+async def schedule_post(request: ScheduledPostCreate) -> ScheduledPostResponse:
+    """
+    Schedule a new social media post
+
+    Validates plan limits before scheduling:
+    - **basico_97**: 2 posts per day
+    - **pro_197**: 5 posts per day
+    - **enterprise_497**: unlimited
+
+    Returns:
+        Scheduled post details with ID and status
+    """
+    return await handle_schedule_post(request)
+
+
+@router.get("/", response_model=ScheduledPostListResponse)
+async def list_posts(
+    account_id: str = Query(..., description="Social account UUID"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0)
+) -> ScheduledPostListResponse:
+    """
+    List scheduled posts for an account
+
+    Returns paginated list ordered by scheduled date/time.
+    """
+    return await handle_list_posts(account_id, limit, offset)
+
+
+@router.patch("/{post_id}/", response_model=ScheduledPostResponse)
+async def update_post(
+    post_id: str,
+    request: ScheduledPostUpdate
+) -> ScheduledPostResponse:
+    """
+    Update scheduled post
+
+    Only draft, scheduled, or failed posts can be edited.
+    Posts being published cannot be modified.
+    """
+    return await handle_update_post(post_id, request)
+
+
+@router.delete("/{post_id}/", response_model=DeleteResponse)
+async def delete_post(post_id: str) -> DeleteResponse:
+    """
+    Cancel scheduled post (soft delete)
+
+    Sets is_active=False. Cannot delete posts while publishing.
+    """
+    return await handle_delete_post(post_id)

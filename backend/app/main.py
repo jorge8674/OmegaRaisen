@@ -40,7 +40,8 @@ from app.api.routes import (
     clients,
     social_accounts,
     brand_files,
-    content_lab
+    content_lab,
+    calendar
 )
 
 # Create FastAPI application
@@ -105,6 +106,7 @@ app.include_router(clients.router, prefix=settings.api_v1_prefix, tags=["Clients
 app.include_router(social_accounts.router, prefix=settings.api_v1_prefix, tags=["Social Accounts 📱"])
 app.include_router(brand_files.router, prefix=settings.api_v1_prefix, tags=["Brand Files 📎"])
 app.include_router(content_lab.router, prefix=settings.api_v1_prefix, tags=["Content Lab 🎨"])
+app.include_router(calendar.router, prefix=settings.api_v1_prefix, tags=["Calendar 📅"])
 
 
 @app.get("/")
@@ -115,7 +117,7 @@ async def root() -> dict[str, str]:
         "version": "2.0.0",
         "status": "running",
         "agents": "15/15",
-        "endpoints": "92",
+        "endpoints": "96",
         "docs": "/docs"
     }
 
