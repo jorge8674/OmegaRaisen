@@ -2,8 +2,7 @@
 Handler de generación de texto para Content Lab.
 Filosofía: No velocity, only precision 🐢💎
 """
-from fastapi import HTTPException, Depends
-from sqlalchemy.orm import Session
+from fastapi import HTTPException
 import logging
 
 from app.api.routes.content_lab.models import (
@@ -14,14 +13,13 @@ from app.api.routes.content_lab.builders.prompt_builder import (
 )
 from app.services.llm.router import generate_content
 from app.domain.llm.types import ContentType, UserTier
-from app.infrastructure.supabase_service import get_db
+from app.infrastructure.supabase_service import get_supabase_service
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_generate_text(
-    request: GenerateTextRequest,
-    db: Session = Depends(get_db)
+    request: GenerateTextRequest
 ) -> GenerateTextResponse:
     """
     Handler HTTP para generación de texto.
@@ -45,30 +43,36 @@ async def handle_generate_text(
         HTTPException: Si falla validación o generación
     """
     try:
-        # 1. Obtener contexto del cliente desde DB
-        # TODO: Usar repository pattern
-        client = db.execute(
-            "SELECT name, plan FROM clients WHERE id = :id",
-            {"id": request.client_id}
-        ).fetchone()
+        # Get Supabase client
+        supabase = get_supabase_service()
 
-        if not client:
+        # 1. Obtener contexto del cliente desde DB
+        client_response = supabase.client.table("clients")\
+            .select("name, plan")\
+            .eq("id", request.client_id)\
+            .execute()
+
+        if not client_response.data:
             raise HTTPException(404, "Cliente no encontrado")
 
-        social_account = db.execute(
-            "SELECT platform, context FROM social_accounts WHERE id = :id",
-            {"id": request.social_account_id}
-        ).fetchone()
+        client = client_response.data[0]
 
-        if not social_account:
+        account_response = supabase.client.table("social_accounts")\
+            .select("platform, context")\
+            .eq("id", request.social_account_id)\
+            .execute()
+
+        if not account_response.data:
             raise HTTPException(404, "Cuenta social no encontrada")
 
-        # 2. Extraer contexto
-        client_name = client.name
-        user_tier = client.plan or "pro_197"  # Default Pro
-        platform = social_account.platform
+        social_account = account_response.data[0]
 
-        context_data = social_account.context or {}
+        # 2. Extraer contexto
+        client_name = client["name"]
+        user_tier = client.get("plan") or "pro_197"  # Default Pro
+        platform = social_account["platform"]
+
+        context_data = social_account.get("context") or {}
         audience = context_data.get("audience", "General")
         tone = context_data.get("tone", "professional")
         goal = context_data.get("goal", "engagement")
@@ -102,25 +106,15 @@ async def handle_generate_text(
 
         # 5. Guardar en DB
         # TODO: Usar repository pattern
-        db.execute(
-            """
-            INSERT INTO content_lab_generated
-            (client_id, social_account_id, content_type, content,
-             provider, model, tokens_used, created_at)
-            VALUES (:client_id, :account_id, :type, :content,
-                    :provider, :model, :tokens, NOW())
-            """,
-            {
-                "client_id": request.client_id,
-                "account_id": request.social_account_id,
-                "type": request.content_type,
-                "content": llm_response.content,
-                "provider": llm_response.provider,
-                "model": llm_response.model,
-                "tokens": llm_response.tokens_used
-            }
-        )
-        db.commit()
+        supabase.client.table("content_lab_generated").insert({
+            "client_id": request.client_id,
+            "social_account_id": request.social_account_id,
+            "content_type": request.content_type,
+            "content": llm_response.content,
+            "provider": llm_response.provider,
+            "model": llm_response.model,
+            "tokens_used": llm_response.tokens_used
+        }).execute()
 
         logger.info(
             f"Generated {request.content_type} for client {request.client_id} "

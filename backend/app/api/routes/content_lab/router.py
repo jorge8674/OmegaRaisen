@@ -2,8 +2,7 @@
 Router principal de Content Lab.
 Filosofía: No velocity, only precision 🐢💎
 """
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
 
 from .models import (
     GenerateTextRequest, GenerateTextResponse,
@@ -11,15 +10,13 @@ from .models import (
     ContentListResponse, SaveContentResponse, DeleteContentResponse
 )
 from .handlers.generate_text import handle_generate_text
-from app.infrastructure.supabase_service import get_db
 
 router = APIRouter(prefix="/content-lab", tags=["content-lab"])
 
 
 @router.post("/generate/", response_model=GenerateTextResponse)
 async def generate_text(
-    request: GenerateTextRequest,
-    db: Session = Depends(get_db)
+    request: GenerateTextRequest
 ) -> GenerateTextResponse:
     """
     Genera contenido de texto usando LLM apropiado según tier.
@@ -31,13 +28,12 @@ async def generate_text(
 
     Returns contenido generado + metadata (provider, model, tokens).
     """
-    return await handle_generate_text(request, db)
+    return await handle_generate_text(request)
 
 
 @router.post("/generate-image/", response_model=GenerateImageResponse)
 async def generate_image(
-    request: GenerateImageRequest,
-    db: Session = Depends(get_db)
+    request: GenerateImageRequest
 ) -> GenerateImageResponse:
     """
     Genera imagen usando modelo apropiado según tier.
@@ -58,8 +54,7 @@ async def list_content(
     client_id: int,
     content_type: str = None,
     limit: int = 20,
-    offset: int = 0,
-    db: Session = Depends(get_db)
+    offset: int = 0
 ) -> ContentListResponse:
     """
     Lista contenido generado para un cliente.
@@ -77,8 +72,7 @@ async def list_content(
 
 @router.patch("/{content_id}/save/", response_model=SaveContentResponse)
 async def save_content(
-    content_id: int,
-    db: Session = Depends(get_db)
+    content_id: int
 ) -> SaveContentResponse:
     """
     Toggle estado de guardado de contenido.
@@ -93,8 +87,7 @@ async def save_content(
 
 @router.delete("/{content_id}/", response_model=DeleteContentResponse)
 async def delete_content(
-    content_id: int,
-    db: Session = Depends(get_db)
+    content_id: int
 ) -> DeleteContentResponse:
     """
     Elimina contenido generado.
