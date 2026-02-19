@@ -42,14 +42,16 @@ async def schedule_post(request: ScheduledPostCreate) -> ScheduledPostResponse:
 async def list_posts(
     account_id: str = Query(..., description="Social account UUID"),
     limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    status: str = Query(None, description="Filter by status: draft, scheduled, published, failed")
 ) -> ScheduledPostListResponse:
     """
     List scheduled posts for an account
 
     Returns paginated list ordered by scheduled date/time.
+    Optional status filter to show only posts in a specific state.
     """
-    return await handle_list_posts(account_id, limit, offset)
+    return await handle_list_posts(account_id, limit, offset, status)
 
 
 @router.patch("/{post_id}/", response_model=ScheduledPostResponse)

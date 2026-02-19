@@ -44,6 +44,7 @@ class ScheduledPostUpdate(BaseModel):
     scheduled_date: Optional[date] = None
     scheduled_time: Optional[time] = None
     timezone: Optional[str] = None
+    agent_assigned: Optional[str] = Field(None, description="Agent that assigned this post")
 
     class Config:
         json_schema_extra = {
@@ -69,6 +70,7 @@ class ScheduledPostResponse(BaseModel):
     scheduled_time: time
     timezone: str
     status: Status
+    agent_assigned: str
     is_active: bool
     created_at: str
     updated_at: str

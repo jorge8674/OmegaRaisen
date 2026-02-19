@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 async def handle_list_posts(
     account_id: str,
     limit: int = 20,
-    offset: int = 0
+    offset: int = 0,
+    status: str = None
 ) -> ScheduledPostListResponse:
     """
     List scheduled posts for an account
@@ -25,6 +26,7 @@ async def handle_list_posts(
         account_id: Social account UUID
         limit: Max results per page
         offset: Pagination offset
+        status: Optional status filter (draft, scheduled, published, etc.)
 
     Returns:
         ScheduledPostListResponse with paginated results
@@ -37,16 +39,35 @@ async def handle_list_posts(
         supabase = get_supabase_service()
         repo = ScheduledPostRepository(supabase)
 
-        # Fetch posts
-        posts = await repo.find_by_account(account_id, limit, offset)
+        # Fetch posts (with optional status filter)
+        if status:
+            # Query with status filter
+            query = supabase.client.table("scheduled_posts")\
+                .select("*")\
+                .eq("account_id", account_id)\
+                .eq("is_active", True)\
+                .eq("status", status)\
+                .order("scheduled_date", desc=False)\
+                .order("scheduled_time", desc=False)\
+                .range(offset, offset + limit - 1)
+
+            response = query.execute()
+            posts = [repo._map_to_entity(row) for row in response.data]
+        else:
+            # Query without status filter (use existing repo method)
+            posts = await repo.find_by_account(account_id, limit, offset)
 
         # Count total (for pagination)
         # Note: In production, this should be optimized with a separate count query
-        count_response = supabase.client.table("scheduled_posts")\
+        count_query = supabase.client.table("scheduled_posts")\
             .select("id", count="exact")\
             .eq("account_id", account_id)\
-            .eq("is_active", True)\
-            .execute()
+            .eq("is_active", True)
+
+        if status:
+            count_query = count_query.eq("status", status)
+
+        count_response = count_query.execute()
 
         total = count_response.count if hasattr(count_response, 'count') else len(posts)
 
@@ -65,6 +86,7 @@ async def handle_list_posts(
                 scheduled_time=post.scheduled_time,
                 timezone=post.timezone,
                 status=post.status,
+                agent_assigned=post.agent_assigned,
                 is_active=post.is_active,
                 created_at=post.created_at.isoformat() if post.created_at else "",
                 updated_at=post.updated_at.isoformat() if post.updated_at else "",

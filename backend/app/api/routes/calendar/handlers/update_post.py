@@ -72,6 +72,9 @@ async def handle_update_post(
         if request.timezone is not None:
             post.timezone = request.timezone
 
+        if request.agent_assigned is not None:
+            post.agent_assigned = request.agent_assigned
+
         # 4. Validate updated entity
         validation_errors = post.validate()
         if validation_errors:
@@ -99,6 +102,7 @@ async def handle_update_post(
             scheduled_time=updated_post.scheduled_time,
             timezone=updated_post.timezone,
             status=updated_post.status,
+            agent_assigned=updated_post.agent_assigned,
             is_active=updated_post.is_active,
             created_at=updated_post.created_at.isoformat() if updated_post.created_at else "",
             updated_at=updated_post.updated_at.isoformat() if updated_post.updated_at else "",

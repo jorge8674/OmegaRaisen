@@ -115,6 +115,7 @@ async def handle_schedule_post(request: ScheduledPostCreate) -> ScheduledPostRes
             scheduled_time=created_post.scheduled_time,
             timezone=created_post.timezone,
             status=created_post.status,
+            agent_assigned=created_post.agent_assigned,
             is_active=created_post.is_active,
             created_at=created_post.created_at.isoformat() if created_post.created_at else "",
             updated_at=created_post.updated_at.isoformat() if created_post.updated_at else "",

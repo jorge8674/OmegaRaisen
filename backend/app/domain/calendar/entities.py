@@ -38,6 +38,9 @@ class ScheduledPost:
     timezone: str = "America/Puerto_Rico"
     status: Status = "draft"
 
+    # Agent tracking
+    agent_assigned: str = "manual"
+
     # Metadata
     is_active: bool = True
     published_at: Optional[datetime] = None
