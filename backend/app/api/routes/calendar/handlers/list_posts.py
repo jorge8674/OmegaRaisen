@@ -14,16 +14,18 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_list_posts(
-    account_id: str,
+    account_id: str = None,
+    client_id: str = None,
     limit: int = 20,
     offset: int = 0,
     status: str = None
 ) -> ScheduledPostListResponse:
     """
-    List scheduled posts for an account
+    List scheduled posts for an account or client
 
     Args:
-        account_id: Social account UUID
+        account_id: Social account UUID (optional if client_id provided)
+        client_id: Client UUID (optional if account_id provided)
         limit: Max results per page
         offset: Pagination offset
         status: Optional status filter (draft, scheduled, published, etc.)
@@ -32,37 +34,54 @@ async def handle_list_posts(
         ScheduledPostListResponse with paginated results
 
     Raises:
+        HTTPException 400: If neither account_id nor client_id provided
         HTTPException 500: If query fails
     """
     try:
+        # Validate: at least one ID must be provided
+        if not account_id and not client_id:
+            raise HTTPException(
+                400,
+                "Either account_id or client_id must be provided"
+            )
+
         # Get services
         supabase = get_supabase_service()
         repo = ScheduledPostRepository(supabase)
 
-        # Fetch posts (with optional status filter)
-        if status:
-            # Query with status filter
-            query = supabase.client.table("scheduled_posts")\
-                .select("*")\
-                .eq("account_id", account_id)\
-                .eq("is_active", True)\
-                .eq("status", status)\
-                .order("scheduled_date", desc=False)\
-                .order("scheduled_time", desc=False)\
-                .range(offset, offset + limit - 1)
+        # Build base query
+        query = supabase.client.table("scheduled_posts")\
+            .select("*")\
+            .eq("is_active", True)
 
-            response = query.execute()
-            posts = [repo._map_to_entity(row) for row in response.data]
-        else:
-            # Query without status filter (use existing repo method)
-            posts = await repo.find_by_account(account_id, limit, offset)
+        # Filter by account_id OR client_id
+        if account_id:
+            query = query.eq("account_id", account_id)
+        elif client_id:
+            query = query.eq("client_id", client_id)
+
+        # Add status filter if provided
+        if status:
+            query = query.eq("status", status)
+
+        # Order and paginate
+        query = query.order("scheduled_date", desc=False)\
+            .order("scheduled_time", desc=False)\
+            .range(offset, offset + limit - 1)
+
+        # Execute query
+        response = query.execute()
+        posts = [repo._map_to_entity(row) for row in response.data]
 
         # Count total (for pagination)
-        # Note: In production, this should be optimized with a separate count query
         count_query = supabase.client.table("scheduled_posts")\
             .select("id", count="exact")\
-            .eq("account_id", account_id)\
             .eq("is_active", True)
+
+        if account_id:
+            count_query = count_query.eq("account_id", account_id)
+        elif client_id:
+            count_query = count_query.eq("client_id", client_id)
 
         if status:
             count_query = count_query.eq("status", status)
