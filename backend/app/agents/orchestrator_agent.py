@@ -15,12 +15,8 @@ from .client_context_agent import ClientContextAgent
 
 logger = logging.getLogger(__name__)
 
-
 class OrchestratorAgent:
-    """
-    Orchestrates agent execution chains with shared context.
-    Manages dependencies between agents and context passing.
-    """
+    """Orchestrates agent execution chains with shared context"""
 
     CHAINS = {
         "content_generation": ["client_context", "content_creator"],
@@ -174,3 +170,29 @@ class OrchestratorAgent:
             "full_analysis": "Complete analysis: context, competition, and trends",
         }
         return descriptions.get(trigger, "No description available")
+
+    async def execute(self, params: dict) -> dict:
+        """
+        Execute orchestrator action (compatibility method for orchestrator router)
+        """
+        action_type = params.get("type", "route")
+
+        if action_type == "route" or action_type == "execute_workflow":
+            trigger = params.get("workflow_name") or params.get("trigger", "content_generation")
+            client_id = params.get("client_id")
+            input_data = params.get("params", {})
+            return await self.route(trigger, client_id, input_data)
+
+        return {"status": "not_implemented", "action": action_type}
+
+    def get_status(self) -> dict:
+        """Get orchestrator agent status"""
+        return {
+            "agent": "orchestrator",
+            "status": "active",
+            "available_chains": list(self.CHAINS.keys())
+        }
+
+
+# Export singleton instance for backward compatibility
+orchestrator_agent = OrchestratorAgent()
