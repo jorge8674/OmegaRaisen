@@ -59,6 +59,8 @@ async def handle_generate_text(
         account = account_response.data[0]
         client_id = account["client_id"]
         client_name = account["clients"]["name"]
+        plan = account["clients"].get("plan") or "pro_197"
+        platform = account["platform"]
         user_tier = plan  # Use plan directly as user_tier
 
         logger.info(
