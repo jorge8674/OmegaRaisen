@@ -19,6 +19,12 @@ class FalVideoAgent:
         "wan": "fal-ai/wan-t2v"
     }
 
+    # Duration (seconds) → Frames mapping for Wan/Hunyuan
+    FRAME_MAP = {
+        5: 81,   # 5 seconds = 81 frames (minimum)
+        10: 161  # 10 seconds = 161 frames
+    }
+
     def __init__(self):
         fal_client.api_key = os.getenv("FAL_KEY")
         self.default_model = "kling"
@@ -55,13 +61,16 @@ class FalVideoAgent:
 
             # Model-specific parameters
             if model == "kling":
-                arguments["duration"] = duration
+                # Kling accepts duration as string
+                arguments["duration"] = str(duration)
                 arguments["aspect_ratio"] = aspect_ratio
             elif model == "hunyuan":
-                arguments["duration"] = duration
-                arguments["aspect_ratio"] = aspect_ratio
+                # Hunyuan requires num_frames and num_inference_steps
+                arguments["num_frames"] = self.FRAME_MAP.get(duration, 81)
+                arguments["num_inference_steps"] = 50
             elif model == "wan":
-                arguments["num_frames"] = duration * 8  # ~8 fps
+                # Wan requires num_frames (minimum 81)
+                arguments["num_frames"] = self.FRAME_MAP.get(duration, 81)
 
             # Subscribe to Fal model (async)
             result = await fal_client.subscribe_async(
