@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field
 
 # Content types disponibles
 ContentType = Literal[
-    "caption", "script", "hashtags", "carrusel",
-    "analytics", "story", "ad", "bio", "email"
+    "post", "caption", "story", "reel", "hashtags",
+    "email", "anuncio", "bio", "script", "carrusel",
+    "analytics", "ad"
 ]
 
 # User tiers basados en planes reales
@@ -40,13 +41,16 @@ class LLMResponse(BaseModel):
 
 class TierConfig(BaseModel):
     """Configuración completa de un tier."""
+    post: Optional[LLMConfig] = None
     caption: LLMConfig
-    script: LLMConfig
+    story: Optional[LLMConfig] = None
+    reel: Optional[LLMConfig] = None
     hashtags: LLMConfig
+    email: Optional[LLMConfig] = None
+    anuncio: Optional[LLMConfig] = None
+    bio: Optional[LLMConfig] = None
+    script: LLMConfig
     carrusel: Optional[LLMConfig] = None
     analytics: Optional[LLMConfig] = None
-    story: Optional[LLMConfig] = None
     ad: Optional[LLMConfig] = None
-    bio: Optional[LLMConfig] = None
-    email: Optional[LLMConfig] = None
     imagen: LLMConfig
