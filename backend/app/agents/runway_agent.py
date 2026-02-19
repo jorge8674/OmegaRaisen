@@ -15,7 +15,8 @@ class RunwayAgent:
     """Agent for AI video generation using Runway Gen-3 Alpha Turbo"""
 
     def __init__(self):
-        self.client = RunwayML(api_key=os.getenv("RUNWAY_API_KEY"))
+        self.api_key = os.getenv("RUNWAY_API_KEY", "")
+        self.client = RunwayML(api_key=self.api_key) if self.api_key else None
         self.model = "gen3a_turbo"
 
     async def execute(
@@ -38,6 +39,16 @@ class RunwayAgent:
             dict with video_url, duration, model, prompt
         """
         try:
+            # Validate API key format
+            if not self.api_key or not self.api_key.startswith("key_"):
+                logger.error("RunwayAgent: Invalid API key format")
+                return {
+                    "error": "RUNWAY_API_KEY must start with 'key_'. Update in Railway Dashboard.",
+                    "status": "config_error",
+                    "prompt": prompt,
+                    "model": self.model
+                }
+
             logger.info(f"RunwayAgent: Generating video with prompt: {prompt[:50]}...")
 
             # Create video generation task

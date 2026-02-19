@@ -57,9 +57,10 @@ async def handle_get_stats(app: FastAPI) -> Dict[str, Any]:
             .execute()
         active_agents = active_agents_resp.count if active_agents_resp.count else 0
 
-        # 4. Count total clients (all active clients)
+        # 4. Count total clients (exclude deleted)
         clients_resp = supabase.client.table("clients")\
             .select("id", count="exact")\
+            .neq("status", "deleted")\
             .execute()
         total_clients = clients_resp.count if clients_resp.count else 0
 
