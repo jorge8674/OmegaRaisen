@@ -1,7 +1,7 @@
 """
 OmegaRaisen FastAPI Application
 Main entry point for the backend API
-15 AI Agents | 92 Endpoints | Enterprise Social Media Automation
+37 AI Agents | 101 Endpoints | Enterprise Social Media Automation
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,14 +41,15 @@ from app.api.routes import (
     social_accounts,
     brand_files,
     content_lab,
-    calendar
+    calendar,
+    agents
 )
 
 # Create FastAPI application
 app = FastAPI(
     title="OmegaRaisen API",
     version="2.0.0",
-    description="Social Media Automation — 15 AI Agents | Enterprise Platform",
+    description="Social Media Automation — 37 AI Agents | Enterprise Platform",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -107,6 +108,7 @@ app.include_router(social_accounts.router, prefix=settings.api_v1_prefix, tags=[
 app.include_router(brand_files.router, prefix=settings.api_v1_prefix, tags=["Brand Files 📎"])
 app.include_router(content_lab.router, prefix=settings.api_v1_prefix, tags=["Content Lab 🎨"])
 app.include_router(calendar.router, prefix=settings.api_v1_prefix, tags=["Calendar 📅"])
+app.include_router(agents.router, prefix=settings.api_v1_prefix, tags=["Agents 🤖"])
 
 
 @app.get("/")
@@ -116,8 +118,8 @@ async def root() -> dict[str, str]:
         "message": "OmegaRaisen API",
         "version": "2.0.0",
         "status": "running",
-        "agents": "15/15",
-        "endpoints": "96",
+        "agents": "37/37",
+        "endpoints": "101",
         "docs": "/docs"
     }
 
@@ -128,7 +130,7 @@ async def health_check() -> dict[str, str]:
     return {
         "status": "healthy",
         "version": "2.0.0",
-        "agents": "15/15",
+        "agents": "37/37",
         "environment": settings.environment
     }
 
