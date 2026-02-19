@@ -10,6 +10,7 @@ from .models import (
 from .handlers import (
     handle_generate_text,
     handle_generate_image,
+    handle_generate_video_runway,
     handle_list_content,
     handle_save_content,
     handle_delete_content,
@@ -59,6 +60,27 @@ async def generate_image(
     Returns flat object con generated_text (URL), content_type, provider, model, cached, tokens_used.
     """
     return await handle_generate_image(account_id, prompt, style)
+
+
+@router.post("/generate-video-runway/")
+async def generate_video_runway(
+    account_id: str = Query(..., description="Social account UUID"),
+    prompt: str = Query(..., description="Video description"),
+    duration: int = Query(default=5, description="Video duration in seconds (5 or 10)"),
+    style: str = Query(default="realistic", description="Video style: realistic, cinematic, animated")
+):
+    """
+    Genera video usando Runway Gen-3 Alpha Turbo
+
+    Frontend envía query params (no body):
+    - **account_id**: Social account UUID
+    - **prompt**: Descripción del video
+    - **duration**: Duración en segundos (5 o 10, default: 5)
+    - **style**: realistic, cinematic, animated (default: realistic)
+
+    Returns flat object con generated_text (video URL), content_type, provider, model, duration, ratio.
+    """
+    return await handle_generate_video_runway(account_id, prompt, duration, style)
 
 
 @router.get("/", response_model=ContentListResponse)
