@@ -4,6 +4,7 @@ Filosofía: No velocity, only precision 🐢💎
 """
 import os
 import logging
+import asyncio
 from typing import Optional
 import fal_client
 
@@ -16,7 +17,7 @@ class FalVideoAgent:
     MODEL_MAP = {
         "kling": "fal-ai/kling-video/v1.6/standard/text-to-video",
         "hunyuan": "fal-ai/hunyuan-video",
-        "wan": "fal-ai/wan/t2v-14b"
+        "wan": "fal-ai/fast-animatediff/t2v"
     }
 
     # Duration (seconds) → Frames mapping for Wan/Hunyuan
@@ -71,14 +72,31 @@ class FalVideoAgent:
                 arguments["num_inference_steps"] = 25
                 arguments["resolution"] = "720p"
             elif model == "wan":
-                # Wan requires num_frames (85 for 5s, 129 for 10s)
-                arguments["num_frames"] = self.FRAME_MAP.get(duration, 85)
+                # Wan (fast-animatediff fallback)
+                arguments["num_frames"] = 16
+                arguments["fps"] = 8
+                arguments["guidance_scale"] = 7.5
 
-            # Subscribe to Fal model (async)
-            result = await fal_client.subscribe_async(
-                model_id,
-                arguments=arguments
-            )
+            # Subscribe to Fal model (async with timeout for Hunyuan)
+            if model == "hunyuan":
+                try:
+                    result = await asyncio.wait_for(
+                        fal_client.subscribe_async(model_id, arguments=arguments),
+                        timeout=180.0  # 3 min max for Hunyuan
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(f"FalVideoAgent: Hunyuan timeout after 180s")
+                    return {
+                        "error": "Hunyuan timeout after 180s",
+                        "status": "timeout",
+                        "model": model,
+                        "prompt": prompt
+                    }
+            else:
+                result = await fal_client.subscribe_async(
+                    model_id,
+                    arguments=arguments
+                )
 
             # Extract video URL from result
             video_url = None

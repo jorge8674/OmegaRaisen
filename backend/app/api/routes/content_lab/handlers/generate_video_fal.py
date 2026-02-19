@@ -12,6 +12,9 @@ from app.agents.fal_video_agent import FalVideoAgent
 
 logger = logging.getLogger(__name__)
 
+# Temporarily disabled models due to timeout/availability issues
+DISABLED_MODELS = ["hunyuan"]
+
 
 async def handle_generate_video_fal(
     account_id: str,
@@ -46,6 +49,13 @@ async def handle_generate_video_fal(
         HTTPException 500: Video generation failed
     """
     try:
+        # Check if model is disabled
+        if model in DISABLED_MODELS:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model '{model}' temporarily unavailable due to timeout issues. Use 'kling' instead."
+            )
+
         supabase = get_supabase_service()
 
         # 1. Get client info from account_id
