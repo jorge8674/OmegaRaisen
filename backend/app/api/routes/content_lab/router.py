@@ -11,6 +11,7 @@ from .handlers import (
     handle_generate_text,
     handle_generate_image,
     handle_generate_video_runway,
+    handle_generate_video_fal,
     handle_list_content,
     handle_save_content,
     handle_delete_content,
@@ -81,6 +82,29 @@ async def generate_video_runway(
     Returns flat object con generated_text (video URL), content_type, provider, model, duration, ratio.
     """
     return await handle_generate_video_runway(account_id, prompt, duration, style)
+
+
+@router.post("/generate-video-fal/")
+async def generate_video_fal(
+    account_id: str = Query(..., description="Social account UUID"),
+    prompt: str = Query(..., description="Video description"),
+    duration: int = Query(default=5, description="Video duration in seconds"),
+    model: str = Query(default="kling", description="Fal model: kling, hunyuan, wan"),
+    style: str = Query(default="realistic", description="Video style: realistic, cinematic, animated")
+):
+    """
+    Genera video usando Fal.ai (Kling, Hunyuan, Wan)
+
+    Frontend envía query params (no body):
+    - **account_id**: Social account UUID
+    - **prompt**: Descripción del video
+    - **duration**: Duración en segundos (default: 5)
+    - **model**: kling, hunyuan, wan (default: kling)
+    - **style**: realistic, cinematic, animated (default: realistic)
+
+    Returns flat object con generated_text (video URL), content_type, provider, model, aspect_ratio.
+    """
+    return await handle_generate_video_fal(account_id, prompt, duration, model, style)
 
 
 @router.get("/", response_model=ContentListResponse)

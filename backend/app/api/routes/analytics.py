@@ -2,11 +2,12 @@
 Analytics API Routes
 Endpoints for data analysis and insights
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from app.agents.analytics_agent import analytics_agent
+from app.api.routes.analytics.handlers.get_dashboard import handle_get_dashboard
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -171,3 +172,24 @@ async def get_dashboard_data(request: DashboardRequest) -> AnalyticsResponse:
 async def get_agent_status() -> dict:
     """Get Analytics Agent status"""
     return analytics_agent.get_status()
+
+
+@router.get("/dashboard/", response_model=AnalyticsResponse)
+async def get_dashboard(
+    client_id: Optional[str] = Query(None, description="Optional client UUID (aggregate all if None)"),
+    date_range: str = Query(default="7d", description="Time range: 7d, 30d, 90d")
+) -> AnalyticsResponse:
+    """
+    Get analytics dashboard with real Supabase data
+
+    - **client_id**: Optional client UUID (if None, aggregate all clients)
+    - **date_range**: Time range (7d, 30d, 90d)
+
+    Returns content_generated, scheduled_posts, agent_executions, client_context stats
+    """
+    result = await handle_get_dashboard(client_id, date_range)
+    return AnalyticsResponse(
+        success=True,
+        data=result,
+        message="Dashboard data retrieved successfully"
+    )
