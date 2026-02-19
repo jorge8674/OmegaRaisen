@@ -1,11 +1,12 @@
--- Seed 37 Agents into agents table
+-- Seed 38 Agents into agents table
 -- Departments: núcleo, contenido, video, contexto, publicación, analytics
 -- Filosofía: No velocity, only precision 🐢💎
 
 -- ============================================
--- NÚCLEO (Core) - 8 agents
+-- NÚCLEO (Core) - 9 agents
 -- ============================================
 INSERT INTO agents (agent_id, name, description, department, category, capabilities, config) VALUES
+('client_context', 'Client Context Agent', 'Analiza datos del cliente y construye contexto compartido para todos los agentes', 'núcleo', 'context_management', '["client_analysis", "context_building", "profile_extraction"]'::jsonb, '{"llm": "gpt-4o", "auto_save": true}'::jsonb),
 ('orchestrator', 'Orchestrator Agent', 'Coordina todos los agentes y flujos de trabajo del sistema', 'núcleo', 'orchestration', '["workflow_management", "agent_coordination", "task_routing"]'::jsonb, '{"priority": "high", "timeout": 600}'::jsonb),
 ('strategy', 'Strategy Agent', 'Planificación estratégica de contenido y campañas', 'núcleo', 'planning', '["content_strategy", "campaign_planning", "goal_setting"]'::jsonb, '{"llm": "gpt-4", "temperature": 0.7}'::jsonb),
 ('monitor', 'Monitor Agent', 'Monitoreo 24/7 del sistema y salud de agentes', 'núcleo', 'monitoring', '["health_checks", "system_monitoring", "alerts"]'::jsonb, '{"check_interval_seconds": 60}'::jsonb),
