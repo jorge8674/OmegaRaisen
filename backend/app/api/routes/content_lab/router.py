@@ -12,7 +12,10 @@ from .handlers import (
     handle_generate_image,
     handle_list_content,
     handle_save_content,
-    handle_delete_content
+    handle_delete_content,
+    handle_analyze_insight,
+    handle_analyze_forecast,
+    handle_predict_virality
 )
 
 router = APIRouter(prefix="/content-lab", tags=["content-lab"])
@@ -104,3 +107,62 @@ async def delete_content(
     Returns confirmación de eliminación.
     """
     return await handle_delete_content(content_id)
+
+
+@router.post("/analyze-insight/")
+async def analyze_insight(
+    content: str = Query(..., description="Generated content text"),
+    content_type: str = Query(..., description="Content type: caption, story, etc."),
+    platform: str = Query(default="instagram", description="Platform: instagram, facebook, etc.")
+):
+    """
+    Analiza contenido generado y proporciona insights.
+
+    Frontend envía query params:
+    - **content**: Texto del contenido generado
+    - **content_type**: Tipo de contenido
+    - **platform**: Plataforma (default: instagram)
+
+    Returns insights, recommendations, tone analysis, content metrics.
+    """
+    return await handle_analyze_insight(content, content_type, platform)
+
+
+@router.post("/analyze-forecast/")
+async def analyze_forecast(
+    content: str = Query(..., description="Generated content text"),
+    content_type: str = Query(..., description="Content type"),
+    platform: str = Query(default="instagram", description="Platform"),
+    avg_followers: int = Query(default=5000, description="Average followers count")
+):
+    """
+    Predice métricas de engagement para contenido generado.
+
+    Frontend envía query params:
+    - **content**: Texto del contenido generado
+    - **content_type**: Tipo de contenido
+    - **platform**: Plataforma (default: instagram)
+    - **avg_followers**: Promedio de followers (default: 5000)
+
+    Returns predicted likes, comments, shares, reach, engagement_rate, confidence level.
+    """
+    return await handle_analyze_forecast(content, content_type, platform, avg_followers)
+
+
+@router.post("/analyze-virality/")
+async def analyze_virality(
+    content: str = Query(..., description="Generated content text"),
+    content_type: str = Query(..., description="Content type"),
+    platform: str = Query(default="instagram", description="Platform")
+):
+    """
+    Predice score de viralidad para contenido generado.
+
+    Frontend envía query params:
+    - **content**: Texto del contenido generado
+    - **content_type**: Tipo de contenido
+    - **platform**: Plataforma (default: instagram)
+
+    Returns virality_score (0-1), virality_level, key factors, recommendations.
+    """
+    return await handle_predict_virality(content, content_type, platform)
