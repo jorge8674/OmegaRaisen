@@ -34,7 +34,7 @@ async def handle_get_clients(
 
         # Build query
         query = supabase.client.table("clients")\
-            .select("id, name, email, plan, status, reseller_id, created_at")\
+            .select("*")\
             .neq("status", "deleted")
 
         if reseller_id:

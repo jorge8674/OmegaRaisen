@@ -52,7 +52,7 @@ async def handle_get_omega_dashboard() -> Dict[str, Any]:
 
         # 2. Resellers Stats
         resellers_resp = supabase.client.table("resellers")\
-            .select("id, name, slug, plan, status")\
+            .select("*")\
             .execute()
         resellers_data = resellers_resp.data or []
 

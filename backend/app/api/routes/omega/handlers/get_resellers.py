@@ -32,7 +32,7 @@ async def handle_get_resellers(
 
         # Build query
         query = supabase.client.table("resellers")\
-            .select("id, name, slug, plan, status, created_at, email")
+            .select("*")
 
         if status:
             query = query.eq("status", status)
