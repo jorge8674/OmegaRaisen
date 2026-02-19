@@ -6,7 +6,6 @@ import logging
 import json
 from typing import Optional
 from app.services.llm.router import generate_content
-from app.domain.llm.types import UserTier, ContentType
 
 logger = logging.getLogger(__name__)
 
@@ -43,16 +42,16 @@ class LLMRouter:
             str: Generated content
         """
         try:
-            # Map tier to UserTier enum
+            # Map tier to UserTier string literal
             tier_map = {
-                "basic": UserTier.BASICO_97,
-                "premium": UserTier.PRO_197,
-                "enterprise": UserTier.ENTERPRISE_497,
+                "basic": "basico_97",
+                "premium": "pro_197",
+                "enterprise": "enterprise_497",
             }
-            user_tier = tier_map.get(tier, UserTier.PRO_197)
+            user_tier = tier_map.get(tier, "pro_197")
 
-            # Default to generic content type
-            content_type = ContentType.CAPTION
+            # Default to generic content type (string literal)
+            content_type = "caption"
 
             # Add response_format to kwargs if specified
             if response_format == "json_object":
