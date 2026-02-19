@@ -3,10 +3,10 @@ Handler de generación de imágenes para Content Lab.
 Usa DALL-E 3 para generar imágenes según tier del cliente
 Filosofía: No velocity, only precision 🐢💎
 """
+from typing import Dict, Any
 from fastapi import HTTPException
 import logging
 
-from app.api.routes.content_lab.models import GenerateImageResponse
 from app.infrastructure.supabase_service import get_supabase_service
 from app.infrastructure.ai.openai_service import openai_service
 
@@ -17,7 +17,7 @@ async def handle_generate_image(
     account_id: str,
     prompt: str,
     style: str = "realistic"
-) -> GenerateImageResponse:
+) -> Dict[str, Any]:
     """
     Handler HTTP para generación de imágenes con DALL-E 3.
 
@@ -26,7 +26,7 @@ async def handle_generate_image(
     2. Construir prompt mejorado según estilo
     3. Llamar a DALL-E 3 (OpenAI)
     4. Guardar resultado en DB
-    5. Retornar URL + metadata
+    5. Retornar URL + metadata en formato flat
 
     Args:
         account_id: Social account UUID
@@ -34,7 +34,7 @@ async def handle_generate_image(
         style: Estilo (realistic, cartoon, minimal)
 
     Returns:
-        GenerateImageResponse con URL de imagen
+        Dict con generated_text, content_type, provider, model, cached, tokens_used
 
     Raises:
         HTTPException 404: Account no encontrado
@@ -107,17 +107,15 @@ async def handle_generate_image(
             f"URL: {image_url[:50]}..."
         )
 
-        # 5. Retornar response
-        return GenerateImageResponse(
-            image_url=image_url,
-            metadata={
-                "provider": "openai",
-                "model": "dall-e-3",
-                "style": style,
-                "size": "1024x1024",
-                "quality": "standard"
-            }
-        )
+        # 5. Retornar response en formato que frontend espera
+        return {
+            "generated_text": image_url,  # URL va en generated_text
+            "content_type": "image",      # CRÍTICO: debe ser exactamente "image"
+            "provider": "openai",
+            "model": "dall-e-3",
+            "cached": False,
+            "tokens_used": 0
+        }
 
     except HTTPException:
         raise

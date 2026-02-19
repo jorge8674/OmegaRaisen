@@ -31,12 +31,12 @@ async def generate_text(
     return await handle_generate_text(request)
 
 
-@router.post("/generate-image/", response_model=GenerateImageResponse)
+@router.post("/generate-image/")
 async def generate_image(
     account_id: str = Query(..., description="Social account UUID"),
     prompt: str = Query(..., description="Image description"),
     style: str = Query(default="realistic", description="Image style: realistic, cartoon, minimal")
-) -> GenerateImageResponse:
+):
     """
     Genera imagen usando DALL-E 3
 
@@ -45,7 +45,7 @@ async def generate_image(
     - **prompt**: Descripción de la imagen
     - **style**: realistic, cartoon, minimal (default: realistic)
 
-    Returns URL de imagen + metadata.
+    Returns flat object con generated_text (URL), content_type, provider, model, cached, tokens_used.
     """
     from .handlers.generate_image import handle_generate_image
     return await handle_generate_image(account_id, prompt, style)
