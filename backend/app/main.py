@@ -7,66 +7,43 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.services.sentinel_service import SentinelService
+import logging
 
-# Optional Qdrant import (graceful degradation during dependency installation)
+logger = logging.getLogger(__name__)
+
+# Optional Qdrant import
 try:
     from app.infrastructure.vector_store.qdrant_client import initialize_qdrant
     QDRANT_AVAILABLE = True
 except ImportError:
     QDRANT_AVAILABLE = False
-    import logging
     logging.warning("Qdrant dependencies not installed yet")
 
 from app.api.routes import (
-    content,
-    strategy,
-    analytics,
-    engagement,
-    monitor,
-    brand_voice,
-    competitive,
-    trends,
-    crisis,
-    reports,
-    growth,
-    video_production,
-    scheduling,
-    ab_testing,
-    orchestrator,
-    resellers,
-    auth,
-    billing,
-    context,
-    clients,
-    social_accounts,
-    brand_files,
-    content_lab,
-    calendar,
-    agents,
-    system,
-    omega,
-    nova,
-    sentinel
+    content, strategy, analytics, engagement, monitor, brand_voice, competitive, trends, crisis,
+    reports, growth, video_production, scheduling, ab_testing, orchestrator, resellers, auth,
+    billing, context, clients, social_accounts, brand_files, content_lab, calendar, agents,
+    system, omega, nova, sentinel
 )
+
+# SENTINEL scheduler
+sentinel_service = SentinelService()
+scheduler = AsyncIOScheduler(timezone="America/Puerto_Rico")
 
 # Create FastAPI application
 app = FastAPI(
-    title="OmegaRaisen API",
-    version="2.0.0",
+    title="OmegaRaisen API", version="2.0.0",
     description="Social Media Automation — 37 AI Agents | Enterprise Platform",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs", redoc_url="/redoc",
 )
 
-# Configure CORS (must be BEFORE routes)
+# Configure CORS
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
 )
-
 
 # Startup event
 @app.on_event("startup")
@@ -75,9 +52,20 @@ async def startup_event():
     if QDRANT_AVAILABLE:
         await initialize_qdrant()
     else:
-        import logging
-        logging.warning("Skipping Qdrant initialization - dependencies not installed")
+        logging.warning("Skipping Qdrant initialization")
+    # SENTINEL cron jobs
+    scheduler.add_job(sentinel_service.run_vault_scan, 'cron', hour=2, minute=0, id='vault_scan')
+    scheduler.add_job(sentinel_service.run_db_guardian, 'cron', hour=5, minute=0, id='db_guardian')
+    scheduler.add_job(sentinel_service.run_full_scan, 'cron', hour=7, minute=0, id='sentinel_brief')
+    scheduler.add_job(sentinel_service.run_pulse_monitor, 'interval', minutes=5, id='pulse_monitor')
+    scheduler.start()
+    logger.info("✅ SENTINEL schedulers activos — 4 jobs registrados")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    scheduler.shutdown()
+    logger.info("SENTINEL schedulers detenidos")
 
 # Core Agents (1-5)
 app.include_router(content.router, prefix=settings.api_v1_prefix, tags=["Content Creator"])
@@ -118,87 +106,47 @@ app.include_router(omega.router, prefix=settings.api_v1_prefix, tags=["OMEGA Com
 app.include_router(nova.router, prefix=settings.api_v1_prefix, tags=["NOVA 👑"])
 app.include_router(sentinel.router, prefix=settings.api_v1_prefix, tags=["SENTINEL 🛡️"])
 
-
 @app.get("/")
 async def root() -> dict[str, str | int]:
     """Root endpoint with dynamic stats"""
     from app.api.routes.system.handlers.get_stats import count_routes, get_supabase_service
-
-    # Get dynamic counts
     total_endpoints = count_routes(app)
-
     try:
         supabase = get_supabase_service()
-        agents_resp = supabase.client.table("agents")\
-            .select("id", count="exact")\
-            .eq("is_active", True)\
-            .execute()
+        agents_resp = supabase.client.table("agents").select("id", count="exact").eq("is_active", True).execute()
         total_agents = agents_resp.count if agents_resp.count else 37
     except:
-        total_agents = 37  # Fallback
-
+        total_agents = 37
     return {
-        "message": "OmegaRaisen API",
-        "version": "2.0.0",
-        "status": "running",
-        "agents": f"{total_agents}/{total_agents}",
-        "endpoints": str(total_endpoints),
-        "docs": "/docs"
+        "message": "OmegaRaisen API", "version": "2.0.0", "status": "running",
+        "agents": f"{total_agents}/{total_agents}", "endpoints": str(total_endpoints), "docs": "/docs"
     }
-
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint with dynamic agent count"""
+    """Health check endpoint"""
     from app.api.routes.system.handlers.get_stats import get_supabase_service
-
     try:
         supabase = get_supabase_service()
-        agents_resp = supabase.client.table("agents")\
-            .select("id", count="exact")\
-            .eq("is_active", True)\
-            .execute()
+        agents_resp = supabase.client.table("agents").select("id", count="exact").eq("is_active", True).execute()
         total_agents = agents_resp.count if agents_resp.count else 37
     except:
-        total_agents = 37  # Fallback
-
-    return {
-        "status": "healthy",
-        "version": "2.0.0",
-        "agents": f"{total_agents}/{total_agents}",
-        "environment": settings.environment
-    }
-
+        total_agents = 37
+    return {"status": "healthy", "version": "2.0.0", "agents": f"{total_agents}/{total_agents}", "environment": settings.environment}
 
 @app.get(f"{settings.api_v1_prefix}/status")
 async def api_status() -> dict[str, str | bool]:
     """API status endpoint"""
-    return {
-        "api_version": "v1",
-        "status": "operational",
-        "debug_mode": settings.debug,
-        "environment": settings.environment
-    }
+    return {"api_version": "v1", "status": "operational", "debug_mode": settings.debug, "environment": settings.environment}
 
-
-# Exception handlers
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc: Exception) -> JSONResponse:
     """Global exception handler"""
     return JSONResponse(
         status_code=500,
-        content={
-            "error": "Internal Server Error",
-            "message": str(exc) if settings.debug else "An error occurred",
-            "type": type(exc).__name__
-        }
+        content={"error": "Internal Server Error", "message": str(exc) if settings.debug else "An error occurred", "type": type(exc).__name__}
     )
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.debug
-    )
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=settings.debug)

@@ -41,7 +41,8 @@ python-multipart==0.0.6
 # Payments (ESSENTIAL)
 stripe==7.0.0
 
-# Background Tasks (COMMENTED)
+# Background Tasks
+APScheduler>=3.10.0
 #celery==5.3.6
 #redis==5.0.1
 
