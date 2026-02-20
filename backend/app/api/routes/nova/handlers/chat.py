@@ -1,6 +1,6 @@
 """
 Handler: NOVA Chat with Claude Sonnet 4.5 (Anthropic)
-Conversational AI assistant for OMEGA Company
+Conversational AI assistant for OMEGA Company with agent memory
 Filosofía: No velocity, only precision 🐢💎
 """
 from typing import Dict, Any, List
@@ -8,6 +8,9 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 import logging
 import os
+import asyncio
+
+from app.services.agent_memory_service import AgentMemoryService
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,7 @@ Responde SIEMPRE en español, con formato markdown cuando sea necesario."""
 
 async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
     """
-    Process chat messages with Claude Sonnet 4.5
+    Process chat messages with Claude Sonnet 4.5 + agent memory
 
     Args:
         request: ChatRequest with messages and optional context_docs
@@ -60,6 +63,8 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
         HTTPException 503: Anthropic service unavailable
     """
     try:
+        memory_service = AgentMemoryService()
+
         # Build context from documents if provided
         context_text = ""
         if request.context_docs:
@@ -68,27 +73,41 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
                 context_text += f"\n--- {doc.get('name', 'Documento')} ---\n"
                 context_text += doc.get('content', '')[:2000]  # Limit per doc
 
-        # Build messages array for Claude (exclude system role)
+        # Build messages array for Claude
         messages = []
-        for msg in request.messages[-20:]:  # Last 20 messages (Claude has 200k context)
-            if msg.role in ["user", "assistant"]:  # Claude only accepts user/assistant
+        for msg in request.messages[-20:]:  # Last 20 messages
+            if msg.role in ["user", "assistant"]:
                 messages.append({
                     "role": msg.role,
                     "content": msg.content
                 })
 
-        # Ensure messages start with user (Claude requirement)
+        # Ensure messages start with user
         if not messages or messages[0]["role"] != "user":
             messages.insert(0, {
                 "role": "user",
                 "content": "Hola NOVA, estoy listo para trabajar."
             })
 
+        # Detect mentioned agents in recent messages
+        recent_text = " ".join([m["content"] for m in messages[-3:]])
+        mentioned_agents = memory_service.extract_mentioned_agents(recent_text)
+
+        # Enrich system prompt with agent memory if agents mentioned
+        agent_memory_context = ""
+        if mentioned_agents:
+            # Get context for the most mentioned agent
+            agent_context = await memory_service.get_agent_context(mentioned_agents[0])
+            if agent_context:
+                agent_memory_context = f"\n\nMEMORIA RECIENTE DE {mentioned_agents[0]}:\n{agent_context}"
+
+        # Build enhanced system prompt
+        enhanced_system = NOVA_SYSTEM_PROMPT + context_text + agent_memory_context
+
         # Check for Anthropic API key
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             logger.error("ANTHROPIC_API_KEY not configured")
-            # Return fallback response
             return {
                 "role": "assistant",
                 "content": "⚠️ Lo siento, el servicio de IA no está configurado correctamente. Por favor verifica que ANTHROPIC_API_KEY esté configurado en las variables de entorno.\n\nMientras tanto, puedo ayudarte accediendo directamente a los endpoints de la API."
@@ -110,7 +129,7 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
                         "model": "claude-sonnet-4-5-20250929",
                         "max_tokens": 2000,
                         "temperature": 0.7,
-                        "system": NOVA_SYSTEM_PROMPT + context_text,
+                        "system": enhanced_system,
                         "messages": messages
                     }
                 )
@@ -120,25 +139,33 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
                     logger.error(f"Anthropic API error: {response.status_code} - {error_detail}")
 
                     if response.status_code == 401:
-                        raise HTTPException(
-                            status_code=503,
-                            detail="Invalid Anthropic API key"
-                        )
+                        raise HTTPException(status_code=503, detail="Invalid Anthropic API key")
                     elif response.status_code == 429:
-                        raise HTTPException(
-                            status_code=503,
-                            detail="Anthropic rate limit exceeded"
-                        )
+                        raise HTTPException(status_code=503, detail="Anthropic rate limit exceeded")
                     else:
-                        raise HTTPException(
-                            status_code=503,
-                            detail=f"Anthropic API error: {response.status_code}"
-                        )
+                        raise HTTPException(status_code=503, detail=f"Anthropic API error: {response.status_code}")
 
                 data = response.json()
                 assistant_message = data["content"][0]["text"]
 
                 logger.info(f"NOVA chat (Claude): generated {len(assistant_message)} chars")
+
+                # Save agent memory asynchronously (non-blocking)
+                user_message = messages[-1]["content"] if messages else ""
+                all_text = user_message + " " + assistant_message
+                mentioned_in_response = memory_service.extract_mentioned_agents(all_text)
+
+                if mentioned_in_response:
+                    # Create task to save memory without blocking response
+                    asyncio.create_task(
+                        memory_service.save_conversation_memory(
+                            agent_codes=mentioned_in_response,
+                            user_message=user_message,
+                            nova_response=assistant_message,
+                            recent_context=messages[-5:]
+                        )
+                    )
+                    logger.info(f"Saving memory for agents: {', '.join(mentioned_in_response)}")
 
                 return {
                     "role": "assistant",
@@ -147,16 +174,10 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
 
         except httpx.TimeoutException:
             logger.error("Anthropic API timeout")
-            raise HTTPException(
-                status_code=503,
-                detail="AI service timeout - please try again"
-            )
+            raise HTTPException(status_code=503, detail="AI service timeout - please try again")
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in NOVA chat: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process chat: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to process chat: {str(e)}")
