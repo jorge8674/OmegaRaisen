@@ -28,7 +28,7 @@ async def handle_get_org_chart() -> Dict[str, Any]:
         # Get all organizational agents
         agents_resp = supabase.client.table("omega_agents")\
             .select("*")\
-            .order("department, role DESC, agent_code")\
+            .order("department, role.desc, agent_code")\
             .execute()
         agents_data = agents_resp.data or []
 
