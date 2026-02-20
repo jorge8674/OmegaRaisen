@@ -45,7 +45,8 @@ from app.api.routes import (
     agents,
     system,
     omega,
-    nova
+    nova,
+    sentinel
 )
 
 # Create FastAPI application
@@ -115,6 +116,7 @@ app.include_router(agents.router, prefix=settings.api_v1_prefix, tags=["Agents �
 app.include_router(system.router, prefix=settings.api_v1_prefix, tags=["System 🔧"])
 app.include_router(omega.router, prefix=settings.api_v1_prefix, tags=["OMEGA Company 👑"])
 app.include_router(nova.router, prefix=settings.api_v1_prefix, tags=["NOVA 👑"])
+app.include_router(sentinel.router, prefix=settings.api_v1_prefix, tags=["SENTINEL 🛡️"])
 
 
 @app.get("/")
