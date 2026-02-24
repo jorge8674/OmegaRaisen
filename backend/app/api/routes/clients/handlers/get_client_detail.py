@@ -30,7 +30,7 @@ async def handle_get_client_detail(client_id: str) -> Dict[str, Any]:
 
         # Get client with reseller join
         client_resp = supabase.client.table("clients")\
-            .select("*, resellers(name)")\
+            .select("*, resellers(agency_name)")\
             .eq("id", client_id)\
             .single()\
             .execute()
@@ -41,7 +41,7 @@ async def handle_get_client_detail(client_id: str) -> Dict[str, Any]:
         client = client_resp.data
         reseller_name = None
         if client.get("resellers") and isinstance(client["resellers"], dict):
-            reseller_name = client["resellers"].get("name")
+            reseller_name = client["resellers"].get("agency_name")
 
         return {
             "id": client.get("id"),
