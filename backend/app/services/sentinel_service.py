@@ -39,7 +39,7 @@ class SentinelService:
     async def run_vault_scan(self) -> Dict[str, Any]:
         """Detecta secrets expuestos y verifica env vars"""
         issues = []
-        required_vars = ["ANTHROPIC_API_KEY", "SUPABASE_URL", "SUPABASE_KEY", "SECRET_KEY"]
+        required_vars = ["ANTHROPIC_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SECRET_KEY"]
 
         for var in required_vars:
             if not os.getenv(var):
