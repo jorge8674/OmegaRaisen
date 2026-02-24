@@ -13,6 +13,11 @@ from app.api.routes.resellers import (
     public,
     leads,
     branding,
+    detail,
+    reseller_clients,
+    reseller_billing,
+    stats,
+    reseller_activity
 )
 
 # Create main router
@@ -39,5 +44,12 @@ router.include_router(leads.router, tags=["resellers-leads"])
 
 # Branding routes
 router.include_router(branding.router, tags=["resellers-branding"])
+
+# Reseller detail routes
+router.include_router(detail.router, tags=["resellers-detail"])
+router.include_router(reseller_clients.router, tags=["resellers-detail"])
+router.include_router(reseller_billing.router, tags=["resellers-detail"])
+router.include_router(stats.router, tags=["resellers-detail"])
+router.include_router(reseller_activity.router, tags=["resellers-detail"])
 
 logger.info("Reseller routers registered successfully")
