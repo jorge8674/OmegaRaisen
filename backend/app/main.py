@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.services.sentinel_service import SentinelService
+from app.services.oracle_service import OracleService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,12 @@ from app.api.routes import (
     content, strategy, analytics, engagement, monitor, brand_voice, competitive, trends, crisis,
     reports, growth, video_production, scheduling, ab_testing, orchestrator, resellers, auth,
     billing, context, clients, social_accounts, brand_files, content_lab, calendar, agents,
-    system, omega, nova, sentinel
+    system, omega, nova, sentinel, oracle
 )
 
-# SENTINEL scheduler
+# Services & scheduler
 sentinel_service = SentinelService()
+oracle_service = OracleService()
 scheduler = AsyncIOScheduler(timezone="America/Puerto_Rico")
 
 # Create FastAPI application
@@ -58,8 +60,10 @@ async def startup_event():
     scheduler.add_job(sentinel_service.run_db_guardian, 'cron', hour=5, minute=0, id='db_guardian')
     scheduler.add_job(sentinel_service.run_full_scan, 'cron', hour=7, minute=0, id='sentinel_brief')
     scheduler.add_job(sentinel_service.run_pulse_monitor, 'interval', minutes=5, id='pulse_monitor')
+    # ORACLE cron jobs
+    scheduler.add_job(oracle_service.generate_intelligence_brief, 'cron', day_of_week='mon', hour=7, minute=0, id='oracle_weekly_brief')
     scheduler.start()
-    logger.info("✅ SENTINEL schedulers activos — 4 jobs registrados")
+    logger.info("✅ SENTINEL + ORACLE schedulers activos — 5 jobs registrados")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -105,6 +109,7 @@ app.include_router(system.router, prefix=settings.api_v1_prefix, tags=["System �
 app.include_router(omega.router, prefix=settings.api_v1_prefix, tags=["OMEGA Company 👑"])
 app.include_router(nova.router, prefix=settings.api_v1_prefix, tags=["NOVA 👑"])
 app.include_router(sentinel.router, prefix=settings.api_v1_prefix, tags=["SENTINEL 🛡️"])
+app.include_router(oracle.router, prefix=settings.api_v1_prefix + "/oracle", tags=["ORACLE 🔮"])
 
 @app.get("/")
 async def root() -> dict[str, str | int]:
