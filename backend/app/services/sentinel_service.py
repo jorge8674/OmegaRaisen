@@ -21,6 +21,11 @@ class SentinelService:
     def __init__(self):
         self.base_url = "https://omegaraisen-production-2031.up.railway.app/api/v1"
 
+    def _prepare_for_insert(self, result: dict) -> dict:
+        """Filter result to only include valid sentinel_scans columns"""
+        valid_cols = ["agent_code", "scan_type", "status", "security_score", "issues", "deploy_decision", "triggered_by"]
+        return {k: v for k, v in result.items() if k in valid_cols}
+
     def _calculate_score(self, issues: list) -> int:
         """Calcula score basado en issues"""
         critical = len([i for i in issues if i["severity"] == "CRITICAL"])
@@ -131,7 +136,8 @@ class SentinelService:
                     agent = result["agent_code"]
                     global_score += result["security_score"] * weights.get(agent, 0.33)
                     all_issues.extend(result.get("issues", []))
-                    supabase.client.table("sentinel_scans").insert({**result, "triggered_by": "cron"}).execute()
+                    insert_data = self._prepare_for_insert({**result, "triggered_by": "cron"})
+                    supabase.client.table("sentinel_scans").insert(insert_data).execute()
 
             global_score = round(global_score)
             status = "presidencial" if global_score >= 85 else "warning" if global_score >= 70 else "critical"

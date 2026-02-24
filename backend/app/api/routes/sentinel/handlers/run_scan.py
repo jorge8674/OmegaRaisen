@@ -60,11 +60,11 @@ async def handle_run_scan(request: ScanRequest) -> Dict[str, Any]:
         if request.scan_type != "full":
             from app.infrastructure.supabase_service import get_supabase_service
             supabase = get_supabase_service()
-
-            supabase.client.table("sentinel_scans").insert({
-                **result,
-                "triggered_by": "manual"
-            }).execute()
+            # Filter to valid columns only
+            valid_cols = ["agent_code", "scan_type", "status", "security_score", "issues", "deploy_decision"]
+            insert_data = {k: v for k, v in result.items() if k in valid_cols}
+            insert_data["triggered_by"] = "manual"
+            supabase.client.table("sentinel_scans").insert(insert_data).execute()
 
         logger.info(f"{request.scan_type} scan completed: score={result.get('security_score', 0)}")
 
