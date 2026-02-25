@@ -15,6 +15,13 @@ class CreateContextRequest(BaseModel):
 class ExtractUrlRequest(BaseModel):
     url: str
 
+class UpdateContextRequest(BaseModel):
+    name: Optional[str] = None
+    content: Optional[str] = None
+    scope: Optional[str] = None
+    scope_id: Optional[str] = None
+    tags: Optional[list[str]] = None
+
 router = APIRouter(prefix="/context", tags=["Context Library 📚"])
 
 @router.get("/")
@@ -26,6 +33,28 @@ async def list_context(scope: str = Query(None)):
 async def create_context(request: CreateContextRequest):
     """Create new context document"""
     return await handle_create_context(request)
+
+@router.patch("/{context_id}/")
+async def update_context(context_id: str, request: UpdateContextRequest):
+    """Update context document (partial)"""
+    from fastapi import HTTPException
+    from app.infrastructure.supabase_service import get_supabase_service
+
+    update_data = {k: v for k, v in request.dict().items() if v is not None}
+
+    if not update_data:
+        raise HTTPException(400, "No hay datos para actualizar")
+
+    supabase = get_supabase_service()
+    result = supabase.client.table("context_library")\
+        .update(update_data)\
+        .eq("id", context_id)\
+        .execute()
+
+    if not result.data:
+        raise HTTPException(404, "Documento no encontrado")
+
+    return result.data[0]
 
 @router.delete("/{context_id}/")
 async def delete_context(context_id: str):
