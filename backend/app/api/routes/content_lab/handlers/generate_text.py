@@ -86,7 +86,17 @@ async def handle_generate_text(
             client_name = client["name"]
             plan = client.get("plan") or "pro_197"
             platform = "instagram"  # Default platform
-            social_account_id = None  # No social account for client-only
+            # Buscar primer social_account del cliente
+            social_resp = supabase.client.table("social_accounts")\
+                .select("id, platform")\
+                .eq("client_id", client_id)\
+                .limit(1)\
+                .execute()
+            if social_resp.data:
+                social_account_id = social_resp.data[0]["id"]
+                platform = social_resp.data[0]["platform"]
+            else:
+                raise HTTPException(400, f"Client {client_id} has no social accounts")
 
         # Normalize plan to match LLM_TIERS keys
         plan_map = {
@@ -156,17 +166,15 @@ async def handle_generate_text(
         )
 
         # 5. Guardar en DB
-        db_record = {
+        supabase.client.table("content_lab_generated").insert({
             "client_id": client_id,
+            "social_account_id": social_account_id,
             "content_type": content_type,
             "content": llm_response.content,
             "provider": llm_response.provider,
             "model": llm_response.model,
             "tokens_used": llm_response.tokens_used
-        }
-        if social_account_id:
-            db_record["social_account_id"] = social_account_id
-        supabase.client.table("content_lab_generated").insert(db_record).execute()
+        }).execute()
 
         logger.info(
             f"Generated {content_type} for client {client_id} "
