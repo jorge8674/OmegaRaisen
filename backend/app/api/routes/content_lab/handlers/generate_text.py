@@ -58,20 +58,32 @@ async def handle_generate_text(
         # Get Supabase client
         supabase = get_supabase_service()
 
-        # 1. Obtener client_id y contexto desde account_id
+        # 1. Obtener client_id - intenta social_accounts, luego clients
         account_response = supabase.client.table("social_accounts")\
             .select("client_id, platform, clients!inner(name, plan)")\
             .eq("id", account_id)\
             .execute()
 
-        if not account_response.data:
-            raise HTTPException(404, f"Social account {account_id} not found")
-
-        account = account_response.data[0]
-        client_id = account["client_id"]
-        client_name = account["clients"]["name"]
-        plan = account["clients"].get("plan") or "pro_197"
-        platform = account["platform"]
+        if account_response.data:
+            # Es un social_account
+            account = account_response.data[0]
+            client_id = account["client_id"]
+            client_name = account["clients"]["name"]
+            plan = account["clients"].get("plan") or "pro_197"
+            platform = account["platform"]
+        else:
+            # Intenta buscar como client_id directo
+            client_response = supabase.client.table("clients")\
+                .select("id, name, plan")\
+                .eq("id", account_id)\
+                .execute()
+            if not client_response.data:
+                raise HTTPException(404, f"Account or client {account_id} not found")
+            client = client_response.data[0]
+            client_id = client["id"]
+            client_name = client["name"]
+            plan = client.get("plan") or "pro_197"
+            platform = "instagram"  # Default platform
 
         # Normalize plan to match LLM_TIERS keys
         plan_map = {
