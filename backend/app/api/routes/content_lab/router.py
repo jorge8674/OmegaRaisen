@@ -5,7 +5,7 @@ Filosofía: No velocity, only precision 🐢💎
 from fastapi import APIRouter, Query
 
 from .models import (
-    ContentListResponse, SaveContentResponse, DeleteContentResponse
+    ContentListResponse, DeleteContentResponse
 )
 from .handlers import (
     handle_generate_text,
@@ -13,7 +13,6 @@ from .handlers import (
     handle_generate_video_runway,
     handle_generate_video_fal,
     handle_list_content,
-    handle_save_content,
     handle_delete_content,
     handle_analyze_insight,
     handle_analyze_forecast,
@@ -125,20 +124,6 @@ async def list_content(
     Returns lista de contenido + total.
     """
     return await handle_list_content(client_id, content_type, limit, offset)
-
-
-@router.patch("/{content_id}/save/", response_model=SaveContentResponse)
-async def save_content(
-    content_id: str
-) -> SaveContentResponse:
-    """
-    Toggle estado de guardado de contenido.
-
-    - **content_id**: ID del contenido (UUID)
-
-    Returns ID + estado de guardado.
-    """
-    return await handle_save_content(content_id)
 
 
 @router.delete("/{content_id}/", response_model=DeleteContentResponse)
