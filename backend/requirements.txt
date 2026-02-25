@@ -34,7 +34,7 @@ httpx==0.26.0
 # Web Scraping & PDF (for URL extractor)
 beautifulsoup4==4.12.3
 pypdf==4.0.1
-lxml==5.1.0
+#lxml==5.1.0  # Not needed - using html.parser (stdlib)
 
 # Authentication & Security (ESSENTIAL)
 python-jose[cryptography]==3.3.0

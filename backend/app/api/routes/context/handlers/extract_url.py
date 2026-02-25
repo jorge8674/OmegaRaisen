@@ -74,7 +74,7 @@ async def handle_extract_url(url: str) -> Dict[str, Any]:
         else:
             # Extract webpage content
             try:
-                soup = BeautifulSoup(response.text, 'lxml')
+                soup = BeautifulSoup(response.text, 'html.parser')
 
                 # Extract title
                 title_tag = soup.find('title')
