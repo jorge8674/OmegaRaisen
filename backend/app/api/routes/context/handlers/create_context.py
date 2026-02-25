@@ -13,10 +13,12 @@ async def handle_create_context(request) -> Dict[str, Any]:
             raise HTTPException(400, "Invalid scope. Must be: global, client, or department")
         if request.scope != "global" and not request.scope_id:
             raise HTTPException(400, f"scope_id required for scope={request.scope}")
+        # Remove null characters (second line of defense)
+        content = request.content.replace('\u0000', '').replace('\x00', '')
         supabase = get_supabase_service()
         resp = supabase.client.table("context_library").insert({
             "name": request.name,
-            "content": request.content,
+            "content": content,
             "scope": request.scope,
             "scope_id": request.scope_id,
             "tags": request.tags or [],

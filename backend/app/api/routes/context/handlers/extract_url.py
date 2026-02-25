@@ -10,6 +10,17 @@ from pypdf import PdfReader
 
 logger = logging.getLogger(__name__)
 
+def clean_text(text: str) -> str:
+    """Remove null characters and control characters that break PostgreSQL."""
+    # Remove null characters
+    text = text.replace('\u0000', '')
+    text = text.replace('\x00', '')
+    # Remove other control characters (except newline, tab, carriage return)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    # Clean multiple newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
 async def handle_extract_url(url: str) -> Dict[str, Any]:
     """Extract content from URL (supports webpages and PDFs)."""
     try:
@@ -48,8 +59,8 @@ async def handle_extract_url(url: str) -> Dict[str, Any]:
                 for page in pdf.pages:
                     text += page.extract_text() + "\n"
 
-                # Clean multiple newlines
-                text = re.sub(r'\n{3,}', '\n\n', text).strip()
+                # Clean text (remove null chars, control chars, multiple newlines)
+                text = clean_text(text)
                 text = text[:50000]  # Limit to 50K chars
 
                 # Extract title from filename
@@ -87,8 +98,8 @@ async def handle_extract_url(url: str) -> Dict[str, Any]:
                 # Extract clean text
                 text = soup.get_text(separator='\n', strip=True)
 
-                # Clean multiple newlines
-                text = re.sub(r'\n{3,}', '\n\n', text).strip()
+                # Clean text (remove null chars, control chars, multiple newlines)
+                text = clean_text(text)
                 text = text[:50000]  # Limit to 50K chars
 
                 if not text or len(text) < 20:
