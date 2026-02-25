@@ -29,21 +29,10 @@ class OracleService:
             for c in clients:
                 plan = c.get("plan", "unknown")
                 clients_by_plan[plan] = clients_by_plan.get(plan, 0) + 1
-            # 2. Contenido generado esta semana (optional - table may not exist)
+            # 2. Contenido generado esta semana (disabled - table not available yet)
             content = []
             content_by_type = {}
-            try:
-                week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
-                content_resp = supabase.client.table("content_lab_generated")\
-                    .select("id, content_type, created_at")\
-                    .gte("created_at", week_ago)\
-                    .execute()
-                content = content_resp.data or []
-                for item in content:
-                    t = item.get("content_type", "unknown")
-                    content_by_type[t] = content_by_type.get(t, 0) + 1
-            except Exception as e:
-                logger.warning(f"Content data not available: {e}")
+            logger.info("Content generation stats not yet available")
             # 3. Resellers activos
             resellers_resp = supabase.client.table("resellers")\
                 .select("id, agency_name, status")\
