@@ -14,13 +14,11 @@ CONTENT_TEMPLATES: dict[str, str] = {
     ),
     "script": (
         "Escribe un script de video para {platform}.\n"
-        "Duración sugerida: {duration}\n"
         "Audiencia: {audience}\n"
         "Tono: {tone}"
     ),
     "hashtags": (
         "Genera hashtags relevantes para {platform}.\n"
-        "Tema: {topic}\n"
         "Audiencia: {audience}\n"
         "Cantidad: 10-15 hashtags"
     ),
@@ -49,9 +47,8 @@ CONTENT_TEMPLATES: dict[str, str] = {
         "Tono: {tone}"
     ),
     "carrusel": (
-        "Crea contenido para carrusel de {slides} slides.\n"
+        "Crea contenido para carrusel de Instagram.\n"
         "Audiencia: {audience}\n"
-        "Tema: {topic}\n"
         "Cada slide: Título + Texto conciso"
     )
 }
