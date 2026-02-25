@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Query
 from .handlers import handle_list_context, handle_create_context, handle_delete_context, handle_get_context_for_agent
 
-router = APIRouter()
+router = APIRouter(prefix="/context", tags=["Context Library 📚"])
 
 @router.get("/")
 async def list_context(scope: str = Query(None)):
