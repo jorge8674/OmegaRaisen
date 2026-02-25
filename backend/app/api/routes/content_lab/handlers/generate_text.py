@@ -64,6 +64,7 @@ async def handle_generate_text(
             .eq("id", account_id)\
             .execute()
 
+        social_account_id = None
         if account_response.data:
             # Es un social_account
             account = account_response.data[0]
@@ -71,6 +72,7 @@ async def handle_generate_text(
             client_name = account["clients"]["name"]
             plan = account["clients"].get("plan") or "pro_197"
             platform = account["platform"]
+            social_account_id = account_id
         else:
             # Intenta buscar como client_id directo
             client_response = supabase.client.table("clients")\
@@ -84,6 +86,7 @@ async def handle_generate_text(
             client_name = client["name"]
             plan = client.get("plan") or "pro_197"
             platform = "instagram"  # Default platform
+            social_account_id = None  # No social account for client-only
 
         # Normalize plan to match LLM_TIERS keys
         plan_map = {
@@ -153,15 +156,17 @@ async def handle_generate_text(
         )
 
         # 5. Guardar en DB
-        supabase.client.table("content_lab_generated").insert({
+        db_record = {
             "client_id": client_id,
-            "social_account_id": account_id,
             "content_type": content_type,
             "content": llm_response.content,
             "provider": llm_response.provider,
             "model": llm_response.model,
             "tokens_used": llm_response.tokens_used
-        }).execute()
+        }
+        if social_account_id:
+            db_record["social_account_id"] = social_account_id
+        supabase.client.table("content_lab_generated").insert(db_record).execute()
 
         logger.info(
             f"Generated {content_type} for client {client_id} "
