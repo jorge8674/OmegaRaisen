@@ -12,6 +12,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 from app.services.agent_memory_service import AgentMemoryService
+from app.services.context_service import ContextService
 from app.infrastructure.supabase_service import get_supabase_service
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,7 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
     """Process chat with Claude Sonnet 4.5 + agent memory + enriched agents context"""
     try:
         memory_service = AgentMemoryService()
+        context_service = ContextService()
         # Build context from documents
         context_text = ""
         if request.context_docs:
@@ -113,14 +115,16 @@ async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
         mentioned_agents = memory_service.extract_mentioned_agents(recent_text)
         # Get agents context (cached 24h)
         agents_context = await get_agents_context()
+        # Get global context from library (cached 1h)
+        global_context = await context_service.get_global_context()
         # Enrich with agent memory if mentioned
         agent_memory_context = ""
         if mentioned_agents:
             agent_context = await memory_service.get_agent_context(mentioned_agents[0])
             if agent_context:
                 agent_memory_context = f"\n\nMEMORIA RECIENTE DE {mentioned_agents[0]}:\n{agent_context}"
-        # Build enhanced system prompt with agents knowledge
-        enhanced_system = NOVA_SYSTEM_PROMPT + agents_context + context_text + agent_memory_context
+        # Build enhanced system prompt with full knowledge
+        enhanced_system = NOVA_SYSTEM_PROMPT + agents_context + global_context + context_text + agent_memory_context
         # Check API key
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:

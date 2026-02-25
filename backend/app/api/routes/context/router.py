@@ -1,28 +1,25 @@
-"""
-Context Main Router
-Registers all context sub-routers under /context prefix
-"""
-from fastapi import APIRouter
-import logging
+"""Context Library Router"""
+from fastapi import APIRouter, Query
+from .handlers import handle_list_context, handle_create_context, handle_delete_context, handle_get_context_for_agent
 
-# Import sub-routers
-from app.api.routes.context import (
-    create,
-    read,
-    update,
-    generate,
-)
+router = APIRouter()
 
-# Create main router
-router = APIRouter(prefix="/context", tags=["context"])
+@router.get("/")
+async def list_context(scope: str = Query(None)):
+    """List all context documents (filter by scope)"""
+    return await handle_list_context(scope)
 
-# Configure logging
-logger = logging.getLogger(__name__)
+@router.post("/")
+async def create_context(name: str, content: str, scope: str, scope_id: str = None, tags: list = None):
+    """Create new context document"""
+    return await handle_create_context(name, content, scope, scope_id, tags or [])
 
-# Register sub-routers
-router.include_router(create.router, tags=["context-create"])
-router.include_router(read.router, tags=["context-read"])
-router.include_router(update.router, tags=["context-update"])
-router.include_router(generate.router, tags=["context-brief"])
+@router.delete("/{context_id}/")
+async def delete_context(context_id: str):
+    """Delete context document"""
+    return await handle_delete_context(context_id)
 
-logger.info("Context routers registered successfully")
+@router.get("/for-agent/")
+async def get_context_for_agent(agent_code: str = Query(...), client_id: str = Query(None), department: str = Query(None)):
+    """Get relevant context for agent"""
+    return await handle_get_context_for_agent(agent_code, client_id, department)

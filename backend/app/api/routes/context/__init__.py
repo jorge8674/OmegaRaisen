@@ -1,6 +1,4 @@
-"""
-Context module exports
-"""
-from app.api.routes.context.router import router
+"""Context Library Routes Package"""
+from .router import router
 
 __all__ = ["router"]

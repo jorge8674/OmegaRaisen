@@ -98,7 +98,7 @@ app.include_router(orchestrator.router, prefix=settings.api_v1_prefix, tags=["Or
 app.include_router(resellers.router, prefix=settings.api_v1_prefix, tags=["Resellers 🏢"])
 app.include_router(auth.router, prefix=settings.api_v1_prefix, tags=["Auth 🔐"])
 app.include_router(billing.router, prefix=settings.api_v1_prefix, tags=["Billing 💳"])
-app.include_router(context.router, prefix=settings.api_v1_prefix, tags=["Context 🎯"])
+app.include_router(context.router, prefix=settings.api_v1_prefix, tags=["Context Library 📚"])
 app.include_router(clients.router, prefix=settings.api_v1_prefix, tags=["Clients 👥"])
 app.include_router(social_accounts.router, prefix=settings.api_v1_prefix, tags=["Social Accounts 📱"])
 app.include_router(brand_files.router, prefix=settings.api_v1_prefix, tags=["Brand Files 📎"])
