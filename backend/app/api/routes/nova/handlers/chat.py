@@ -3,16 +3,23 @@ Handler: NOVA Chat with Claude Sonnet 4.5 (Anthropic)
 Conversational AI assistant for OMEGA Company with agent memory
 Filosofía: No velocity, only precision 🐢💎
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 import logging
 import os
 import asyncio
+from datetime import datetime, timedelta
 
 from app.services.agent_memory_service import AgentMemoryService
+from app.infrastructure.supabase_service import get_supabase_service
 
 logger = logging.getLogger(__name__)
+
+# Cache for agents context (refresh every 24h)
+_agents_cache: Optional[str] = None
+_agents_cache_time: Optional[datetime] = None
+CACHE_TTL_HOURS = 24
 
 
 class ChatMessage(BaseModel):
@@ -23,6 +30,41 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     context_docs: List[Dict[str, Any]] = []
+
+
+async def get_agents_context() -> str:
+    """Get agents context from DB with 24h caching."""
+    global _agents_cache, _agents_cache_time
+    now = datetime.utcnow()
+    # Check cache validity
+    if _agents_cache and _agents_cache_time:
+        if (now - _agents_cache_time).total_seconds() / 3600 < CACHE_TTL_HOURS:
+            return _agents_cache
+    # Refresh from DB
+    try:
+        supabase = get_supabase_service()
+        agents_resp = supabase.client.table("omega_agents")\
+            .select("agent_code, name, role, department")\
+            .order("department, role.desc, agent_code")\
+            .execute()
+        if not agents_resp.data:
+            return ""
+        # Build context
+        ctx = "\n\nAGENTES DEL SISTEMA OMEGA:\n"
+        current_dept = None
+        for agent in agents_resp.data:
+            dept = agent.get('department', 'Unknown')
+            if dept != current_dept:
+                ctx += f"\n{dept}:\n"
+                current_dept = dept
+            ctx += f"  • {agent['agent_code']} ({agent.get('role', 'Agent')}): {agent.get('name', agent['agent_code'])}\n"
+        _agents_cache = ctx
+        _agents_cache_time = now
+        logger.info(f"Agents context refreshed: {len(agents_resp.data)} agents")
+        return ctx
+    except Exception as e:
+        logger.error(f"Failed to load agents: {e}")
+        return ""
 
 
 NOVA_SYSTEM_PROMPT = """Eres NOVA, el CEO Agent de OMEGA Company (Raisen Agency).
@@ -47,64 +89,39 @@ Capacidades:
 
 Responde SIEMPRE en español, con formato markdown cuando sea necesario."""
 
-
 async def handle_chat(request: ChatRequest) -> Dict[str, Any]:
-    """
-    Process chat messages with Claude Sonnet 4.5 + agent memory
-
-    Args:
-        request: ChatRequest with messages and optional context_docs
-
-    Returns:
-        Dict with assistant response
-
-    Raises:
-        HTTPException 500: Anthropic API error
-        HTTPException 503: Anthropic service unavailable
-    """
+    """Process chat with Claude Sonnet 4.5 + agent memory + enriched agents context"""
     try:
         memory_service = AgentMemoryService()
-
-        # Build context from documents if provided
+        # Build context from documents
         context_text = ""
         if request.context_docs:
             context_text = "\n\nDOCUMENTOS DE CONTEXTO:\n"
             for doc in request.context_docs:
                 context_text += f"\n--- {doc.get('name', 'Documento')} ---\n"
-                context_text += doc.get('content', '')[:2000]  # Limit per doc
-
-        # Build messages array for Claude
+                context_text += doc.get('content', '')[:2000]
+        # Build messages array for Claude (last 20)
         messages = []
-        for msg in request.messages[-20:]:  # Last 20 messages
+        for msg in request.messages[-20:]:
             if msg.role in ["user", "assistant"]:
-                messages.append({
-                    "role": msg.role,
-                    "content": msg.content
-                })
-
+                messages.append({"role": msg.role, "content": msg.content})
         # Ensure messages start with user
         if not messages or messages[0]["role"] != "user":
-            messages.insert(0, {
-                "role": "user",
-                "content": "Hola NOVA, estoy listo para trabajar."
-            })
-
-        # Detect mentioned agents in recent messages
+            messages.insert(0, {"role": "user", "content": "Hola NOVA, estoy listo para trabajar."})
+        # Detect mentioned agents
         recent_text = " ".join([m["content"] for m in messages[-3:]])
         mentioned_agents = memory_service.extract_mentioned_agents(recent_text)
-
-        # Enrich system prompt with agent memory if agents mentioned
+        # Get agents context (cached 24h)
+        agents_context = await get_agents_context()
+        # Enrich with agent memory if mentioned
         agent_memory_context = ""
         if mentioned_agents:
-            # Get context for the most mentioned agent
             agent_context = await memory_service.get_agent_context(mentioned_agents[0])
             if agent_context:
                 agent_memory_context = f"\n\nMEMORIA RECIENTE DE {mentioned_agents[0]}:\n{agent_context}"
-
-        # Build enhanced system prompt
-        enhanced_system = NOVA_SYSTEM_PROMPT + context_text + agent_memory_context
-
-        # Check for Anthropic API key
+        # Build enhanced system prompt with agents knowledge
+        enhanced_system = NOVA_SYSTEM_PROMPT + agents_context + context_text + agent_memory_context
+        # Check API key
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             logger.error("ANTHROPIC_API_KEY not configured")
