@@ -40,11 +40,22 @@ async def generate_content(
     Raises:
         Exception: Si todos los modelos del fallback chain fallan
     """
-    # Obtener configuración del tier
+    # Normalizar content_type (English → Spanish)
+    CONTENT_TYPE_MAP = {"image": "imagen", "ad": "anuncio"}
+    normalized_type = CONTENT_TYPE_MAP.get(content_type, content_type)
+
+    # Obtener configuración del tier con fallback
+    if user_tier not in LLM_TIERS:
+        # Fallback: usar tier base (enterprise → pro, etc.)
+        base_tier = user_tier.split('_')[0] if '_' in user_tier else user_tier
+        fallback_map = {"basico": "basico_97", "pro": "pro_197", "enterprise": "enterprise_497"}
+        user_tier = fallback_map.get(base_tier, "pro_197")
+        logger.warning(f"Tier not found, using fallback: {user_tier}")
+
     tier_config = LLM_TIERS[user_tier]
 
     # Obtener config específica del tipo de contenido
-    content_config = getattr(tier_config, content_type, None)
+    content_config = getattr(tier_config, normalized_type, None)
 
     if not content_config:
         raise ValueError(

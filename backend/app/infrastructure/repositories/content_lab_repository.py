@@ -48,7 +48,6 @@ class ContentLabRepository:
             query = self.supabase.client.table(self.table)\
                 .select("*", count="exact")\
                 .eq("client_id", client_id)\
-                .eq("is_active", True)\
                 .order("created_at", desc=True)
 
             # Apply content_type filter if provided
@@ -92,7 +91,6 @@ class ContentLabRepository:
             response = self.supabase.client.table(self.table)\
                 .select("*")\
                 .eq("id", content_id)\
-                .eq("is_active", True)\
                 .execute()
 
             if not response.data:
@@ -126,7 +124,6 @@ class ContentLabRepository:
                     "updated_at": datetime.utcnow().isoformat()
                 })\
                 .eq("id", content_id)\
-                .eq("is_active", True)\
                 .execute()
 
             if not response.data:
@@ -144,7 +141,7 @@ class ContentLabRepository:
 
     def soft_delete(self, content_id: str) -> bool:
         """
-        Elimina contenido (soft delete).
+        Elimina contenido (hard delete - tabla no tiene soft delete).
 
         Args:
             content_id: UUID del contenido
@@ -154,24 +151,21 @@ class ContentLabRepository:
         """
         try:
             response = self.supabase.client.table(self.table)\
-                .update({
-                    "is_active": False,
-                    "updated_at": datetime.utcnow().isoformat()
-                })\
+                .delete()\
                 .eq("id", content_id)\
                 .execute()
 
             success = len(response.data) > 0
 
             if success:
-                logger.info(f"Soft deleted content {content_id}")
+                logger.info(f"Deleted content {content_id}")
             else:
                 logger.warning(f"Content {content_id} not found for deletion")
 
             return success
 
         except Exception as e:
-            logger.error(f"Error soft deleting content: {e}")
+            logger.error(f"Error deleting content: {e}")
             raise
 
     def _row_to_entity(self, row: dict) -> ContentLabGenerated:
@@ -194,7 +188,6 @@ class ContentLabRepository:
             model=row["model"],
             tokens_used=row.get("tokens_used", 0),
             is_saved=row.get("is_saved", False),
-            is_active=row.get("is_active", True),
             created_at=datetime.fromisoformat(row["created_at"])
             if row.get("created_at")
             else datetime.utcnow(),

@@ -25,21 +25,12 @@ class ContentLabGenerated:
     model: str
     tokens_used: int
     is_saved: bool
-    is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     def toggle_saved(self) -> None:
         """Toggle estado de guardado (favorito)."""
         self.is_saved = not self.is_saved
-
-    def soft_delete(self) -> None:
-        """Marca el contenido como eliminado (soft delete)."""
-        self.is_active = False
-
-    def can_be_modified(self) -> bool:
-        """Verifica si el contenido puede ser modificado."""
-        return self.is_active
 
     def to_dict(self) -> dict:
         """Convierte entidad a diccionario."""
@@ -53,7 +44,6 @@ class ContentLabGenerated:
             "model": self.model,
             "tokens_used": self.tokens_used,
             "is_saved": self.is_saved,
-            "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
