@@ -23,7 +23,7 @@ class ContextService:
         self.table = "context_library"
 
     async def get_global_context(self) -> str:
-        """Get all global context documents with 1h caching."""
+        """Get ALL context from library (global + client + department) with 1h caching."""
         global _global_cache, _global_cache_time
         now = datetime.utcnow()
         # Check cache validity
@@ -34,23 +34,47 @@ class ContextService:
         # Refresh from DB
         try:
             resp = self.supabase.client.table(self.table)\
-                .select("name, content")\
-                .eq("scope", "global")\
+                .select("name, content, scope, scope_id, tags")\
                 .eq("is_active", True)\
-                .order("created_at")\
+                .order("scope")\
                 .execute()
             if not resp.data:
                 return ""
-            # Build context
-            ctx = "\n\nCONTEXTO GLOBAL DE LA EMPRESA:\n"
-            for doc in resp.data:
-                ctx += f"\n--- {doc['name']} ---\n{doc['content']}\n"
+
+            docs = resp.data
+
+            # Limit to 80K chars - prioritize global > client > department
+            total_chars = sum(len(d['content']) for d in docs)
+            if total_chars > 80000:
+                docs.sort(key=lambda d: {'global': 0, 'client': 1, 'department': 2}.get(d['scope'], 3))
+                selected = []
+                chars = 0
+                for doc in docs:
+                    if chars + len(doc['content']) < 80000:
+                        selected.append(doc)
+                        chars += len(doc['content'])
+                docs = selected
+
+            # Build context with scope labels
+            context_parts = []
+            for doc in docs:
+                scope_label = {
+                    "global": "📌 CONTEXTO GLOBAL",
+                    "client": f"👤 CLIENTE: {doc.get('scope_id', 'N/A')}",
+                    "department": f"🏢 DEPARTAMENTO: {doc.get('scope_id', 'N/A').upper() if doc.get('scope_id') else 'N/A'}"
+                }.get(doc['scope'], doc['scope'].upper())
+
+                context_parts.append(
+                    f"\n\n=== {scope_label} — {doc['name']} ===\n{doc['content']}"
+                )
+
+            ctx = "\n".join(context_parts) if context_parts else ""
             _global_cache = ctx
             _global_cache_time = now
-            logger.info(f"Global context refreshed: {len(resp.data)} docs")
+            logger.info(f"Context library refreshed: {len(docs)} docs ({len(ctx)} chars)")
             return ctx
         except Exception as e:
-            logger.error(f"Failed to load global context: {e}")
+            logger.error(f"Failed to load context library: {e}")
             return ""
 
     async def get_context_for_agent(
