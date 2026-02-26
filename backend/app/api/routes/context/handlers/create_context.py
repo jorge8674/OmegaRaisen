@@ -31,7 +31,11 @@ async def handle_create_context(request) -> Dict[str, Any]:
         if not resp.data:
             raise HTTPException(500, "Failed to create context")
         doc = resp.data[0]
-        logger.info(f"Created context: {request.name} (scope={request.scope})")
+        # Auto-clear cache so NOVA gets fresh context immediately
+        import app.services.context_service as ctx_module
+        ctx_module._global_cache = None
+        ctx_module._global_cache_time = None
+        logger.info(f"Created context: {request.name} (scope={request.scope}) - cache cleared")
         return doc
     except HTTPException:
         raise

@@ -55,6 +55,25 @@ class ContextService:
                         chars += len(doc['content'])
                 docs = selected
 
+            # Build document index
+            index_lines = []
+            for doc in docs:
+                scope_label = {
+                    "global": "Global",
+                    "client": f"Cliente: {doc.get('scope_id','')[:8]}..." if doc.get('scope_id') else "Cliente",
+                    "department": f"Depto: {doc.get('scope_id','').upper()}" if doc.get('scope_id') else "Depto"
+                }.get(doc['scope'], doc['scope'])
+
+                index_lines.append(
+                    f"  - [{scope_label}] {doc['name']} ({len(doc['content'])} chars)"
+                )
+
+            index_header = (
+                f"\n\n=== DOCUMENTOS EN CONTEXT LIBRARY ({len(docs)} total) ===\n"
+                + "\n".join(index_lines)
+                + "\n\n=== CONTENIDO COMPLETO ===\n"
+            )
+
             # Build context with scope labels
             context_parts = []
             for doc in docs:
@@ -68,7 +87,7 @@ class ContextService:
                     f"\n\n=== {scope_label} — {doc['name']} ===\n{doc['content']}"
                 )
 
-            ctx = "\n".join(context_parts) if context_parts else ""
+            ctx = index_header + "\n".join(context_parts) if context_parts else ""
             _global_cache = ctx
             _global_cache_time = now
             logger.info(f"Context library refreshed: {len(docs)} docs ({len(ctx)} chars)")

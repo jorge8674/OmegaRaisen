@@ -54,6 +54,11 @@ async def update_context(context_id: str, request: UpdateContextRequest):
     if not result.data:
         raise HTTPException(404, "Documento no encontrado")
 
+    # Auto-clear cache so NOVA gets fresh context immediately
+    import app.services.context_service as ctx_module
+    ctx_module._global_cache = None
+    ctx_module._global_cache_time = None
+
     return result.data[0]
 
 @router.delete("/{context_id}/")
