@@ -13,6 +13,9 @@ async def handle_create_context(request) -> Dict[str, Any]:
             raise HTTPException(400, "Invalid scope. Must be: global, client, or department")
         if request.scope != "global" and not request.scope_id:
             raise HTTPException(400, f"scope_id required for scope={request.scope}")
+        # Detect raw PDF binary (should be extracted text, not binary)
+        if request.content.startswith('%PDF'):
+            raise HTTPException(422, "El contenido parece ser un PDF sin procesar. Usa el endpoint /extract-url/ o sube el texto extraído.")
         # Remove null characters (second line of defense)
         content = request.content.replace('\u0000', '').replace('\x00', '')
         supabase = get_supabase_service()
