@@ -5,7 +5,7 @@ Filosofía: No velocity, only precision 🐢💎
 from fastapi import APIRouter, Query
 
 from .models import (
-    ContentListResponse, DeleteContentResponse
+    ContentListResponse, DeleteContentResponse, ImageGenerateRequest
 )
 from .handlers import (
     handle_generate_text,
@@ -46,22 +46,28 @@ async def generate_text(
 
 
 @router.post("/generate-image/")
-async def generate_image(
-    account_id: str = Query(..., description="Social account UUID"),
-    prompt: str = Query(..., description="Image description"),
-    style: str = Query(default="realistic", description="Image style: realistic, cartoon, minimal")
-):
+async def generate_image(request: ImageGenerateRequest):
     """
-    Genera imagen usando DALL-E 3
+    Genera o edita imagen usando DALL-E 3 o GPT-Image-1
 
-    Frontend envía query params (no body):
+    Frontend envía JSON body:
     - **account_id**: Social account UUID
-    - **prompt**: Descripción de la imagen
+    - **prompt**: Descripción (generación) o instrucciones (edición)
     - **style**: realistic, cartoon, minimal (default: realistic)
+    - **attachments**: Lista de imágenes base64 para editar (opcional)
 
-    Returns flat object con generated_text (URL), content_type, provider, model, cached, tokens_used.
+    Lógica:
+    - Si hay attachments → GPT-Image-1 EDIT (modificar, agregar logos, combinar)
+    - Sin attachments → DALL-E 3 GENERATE (crear desde cero)
+
+    Returns flat object con generated_text (URL), content_type, provider, model, mode, cached, tokens_used.
     """
-    return await handle_generate_image(account_id, prompt, style)
+    return await handle_generate_image(
+        account_id=request.account_id,
+        prompt=request.prompt,
+        style=request.style,
+        attachments=request.attachments
+    )
 
 
 @router.post("/generate-video-runway/")

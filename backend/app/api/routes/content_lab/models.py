@@ -48,23 +48,26 @@ class GenerateTextResponse(BaseModel):
         }
 
 
+class ImageAttachment(BaseModel):
+    """Adjunto de imagen para edición."""
+    type: str = Field(default="image", description="Tipo de adjunto")
+    base64: str = Field(..., description="Imagen en base64 (con o sin data: prefix)")
+
+
 class GenerateImageRequest(BaseModel):
-    """Request para generación de imágenes."""
-    client_id: str = Field(..., description="ID del cliente (UUID)")
-    social_account_id: str = Field(..., description="ID de cuenta social (UUID)")
-    prompt: str = Field(..., min_length=1, description="Descripción de la imagen")
-    style: str = Field(
-        default="realistic",
-        description="Estilo: realistic, cartoon, minimal"
-    )
+    """Request para generación/edición de imágenes."""
+    account_id: str = Field(..., description="Social account UUID")
+    prompt: str = Field(..., min_length=1, description="Descripción o instrucción de edición")
+    style: str = Field(default="realistic", description="Estilo: realistic, cartoon, minimal")
+    attachments: list[ImageAttachment] = Field(default=[], description="Imágenes para editar (GPT-Image-1)")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "client_id": "bd68ca50-b8ef-4240-a0ce-44df58f53171",
-                "social_account_id": "cb1dfe0a-43a2-4e9b-9099-df6035f76700",
-                "prompt": "Producto tecnológico moderno sobre fondo blanco",
-                "style": "realistic"
+                "account_id": "cb1dfe0a-43a2-4e9b-9099-df6035f76700",
+                "prompt": "Add company logo to top right corner",
+                "style": "realistic",
+                "attachments": []
             }
         }
 
