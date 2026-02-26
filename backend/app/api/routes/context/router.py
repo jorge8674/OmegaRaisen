@@ -70,3 +70,11 @@ async def get_context_for_agent(agent_code: str = Query(...), client_id: str = Q
 async def extract_url(request: ExtractUrlRequest):
     """Extract content from URL (webpage or PDF)"""
     return await handle_extract_url(request.url)
+
+@router.post("/cache/clear/")
+async def clear_context_cache():
+    """Force clear context cache (for immediate refresh)"""
+    import app.services.context_service as ctx_module
+    ctx_module._global_cache = None
+    ctx_module._global_cache_time = None
+    return {"cleared": True, "message": "Context cache cleared - next NOVA chat will refresh from DB"}
