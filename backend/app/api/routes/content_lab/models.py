@@ -56,16 +56,22 @@ class ImageAttachment(BaseModel):
 
 class GenerateImageRequest(BaseModel):
     """Request para generación/edición de imágenes."""
-    account_id: str = Field(..., description="Social account UUID")
-    prompt: str = Field(..., min_length=1, description="Descripción o instrucción de edición")
+    account_id: Optional[str] = Field(None, description="Social account UUID")
+    prompt: Optional[str] = Field(None, description="Descripción o instrucción de edición")
+    brief: Optional[str] = Field(None, description="Brief (alias de prompt)")
     style: str = Field(default="realistic", description="Estilo: realistic, cartoon, minimal")
     attachments: list[ImageAttachment] = Field(default=[], description="Imágenes para editar (GPT-Image-1)")
+
+    @property
+    def effective_prompt(self) -> str:
+        """Unifica 'prompt' y 'brief' — frontend puede enviar cualquiera."""
+        return self.prompt or self.brief or ""
 
     class Config:
         json_schema_extra = {
             "example": {
                 "account_id": "cb1dfe0a-43a2-4e9b-9099-df6035f76700",
-                "prompt": "Add company logo to top right corner",
+                "brief": "Add company logo to top right corner",
                 "style": "realistic",
                 "attachments": []
             }

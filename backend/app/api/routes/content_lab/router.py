@@ -46,13 +46,16 @@ async def generate_text(
 
 
 @router.post("/generate-image/")
-async def generate_image(request: ImageGenerateRequest):
+async def generate_image(
+    request: ImageGenerateRequest,
+    account_id: str = Query(None, description="Social account UUID (query param fallback)")
+):
     """
     Genera o edita imagen usando DALL-E 3 o GPT-Image-1
 
     Frontend envía JSON body:
-    - **account_id**: Social account UUID
-    - **prompt**: Descripción (generación) o instrucciones (edición)
+    - **account_id**: Social account UUID (body o query param)
+    - **prompt** o **brief**: Descripción (generación) o instrucciones (edición)
     - **style**: realistic, cartoon, minimal (default: realistic)
     - **attachments**: Lista de imágenes base64 para editar (opcional)
 
@@ -62,9 +65,11 @@ async def generate_image(request: ImageGenerateRequest):
 
     Returns flat object con generated_text (URL), content_type, provider, model, mode, cached, tokens_used.
     """
+    # account_id puede venir en body o query param
+    effective_account_id = request.account_id or account_id
     return await handle_generate_image(
-        account_id=request.account_id,
-        prompt=request.prompt,
+        account_id=effective_account_id,
+        prompt=request.effective_prompt,
         style=request.style,
         attachments=request.attachments
     )
