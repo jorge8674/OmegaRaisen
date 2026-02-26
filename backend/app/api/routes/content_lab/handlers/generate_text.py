@@ -9,7 +9,7 @@ import logging
 from app.api.routes.content_lab.builders.prompt_builder import (
     build_user_prompt, build_system_prompt
 )
-from app.services.llm.router import generate_content
+from app.services.ai_providers import AIProviders
 from app.infrastructure.supabase_service import get_supabase_service
 from app.infrastructure.repositories.client_context_repository import ClientContextRepository
 
@@ -20,7 +20,8 @@ async def handle_generate_text(
     account_id: str,
     content_type: str,
     brief: str,
-    language: str = "es"
+    language: str = "es",
+    director: str = "REX"
 ) -> dict:
     """
     Handler HTTP para generación de texto.
@@ -28,7 +29,7 @@ async def handle_generate_text(
     Workflow:
     1. Obtener client_id y contexto desde account_id
     2. Construir prompts (user + system)
-    3. Llamar al router LLM
+    3. Llamar al AI provider seleccionado (multi-engine)
     4. Guardar resultado en DB
     5. Retornar response en formato flat
 
@@ -37,6 +38,7 @@ async def handle_generate_text(
         content_type: Tipo de contenido (caption, story, etc.)
         brief: Brief del usuario
         language: Idioma (default: es)
+        director: AI Director (NOVA, ATLAS, LUNA, REX, VERA, KIRA, ORACLE)
 
     Returns:
         Dict con generated_text, content_type, provider, model, cached, tokens_used
@@ -157,12 +159,14 @@ async def handle_generate_text(
             keywords=keywords
         )
 
-        # 4. Llamar al router LLM
-        llm_response = await generate_content(
-            content_type=content_type,
-            user_tier=user_tier,
+        # 4. Llamar al AI provider seleccionado (multi-engine)
+        ai_providers = AIProviders()
+        llm_response = await ai_providers.generate(
+            director=director.upper(),
             prompt=user_prompt,
-            system_prompt=system_prompt
+            system_prompt=system_prompt,
+            max_tokens=2000,
+            temperature=0.7
         )
 
         # 5. Guardar en DB
@@ -170,25 +174,26 @@ async def handle_generate_text(
             "client_id": client_id,
             "social_account_id": social_account_id,
             "content_type": content_type,
-            "content": llm_response.content,
-            "provider": llm_response.provider,
-            "model": llm_response.model,
-            "tokens_used": llm_response.tokens_used
+            "content": llm_response["content"],
+            "provider": llm_response["provider"],
+            "model": llm_response["model"],
+            "tokens_used": llm_response["tokens_used"]
         }).execute()
 
         logger.info(
             f"Generated {content_type} for client {client_id} "
-            f"via {llm_response.provider}/{llm_response.model}"
+            f"via {director.upper()} ({llm_response['provider']}/{llm_response['model']})"
         )
 
         # 6. Retornar response en formato flat (igual que imagen)
         return {
-            "generated_text": llm_response.content,
+            "generated_text": llm_response["content"],
             "content_type": content_type,
-            "provider": llm_response.provider,
-            "model": llm_response.model,
-            "cached": llm_response.cached,
-            "tokens_used": llm_response.tokens_used
+            "provider": llm_response["provider"],
+            "model": llm_response["model"],
+            "director": director.upper(),
+            "cached": False,  # Not using cache for now
+            "tokens_used": llm_response["tokens_used"]
         }
 
     except HTTPException:

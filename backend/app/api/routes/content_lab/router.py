@@ -27,7 +27,8 @@ async def generate_text(
     account_id: str = Query(..., description="Social account UUID"),
     content_type: str = Query(..., description="Content type: caption, story, etc."),
     brief: str = Query(..., description="User instructions"),
-    language: str = Query(default="es", description="Language: es, en, etc.")
+    language: str = Query(default="es", description="Language: es, en, etc."),
+    director: str = Query(default="REX", description="AI Director: NOVA, ATLAS, LUNA, REX, VERA, KIRA, ORACLE")
 ):
     """
     Genera contenido de texto usando LLM apropiado según tier.
@@ -37,10 +38,11 @@ async def generate_text(
     - **content_type**: caption, script, hashtags, story, ad, bio, email
     - **brief**: Instrucciones específicas del usuario
     - **language**: Idioma (default: es)
+    - **director**: AI Director (default: REX = gpt-4o-mini)
 
     Returns flat object con generated_text, content_type, provider, model, cached, tokens_used.
     """
-    return await handle_generate_text(account_id, content_type, brief, language)
+    return await handle_generate_text(account_id, content_type, brief, language, director)
 
 
 @router.post("/generate-image/")
@@ -197,3 +199,23 @@ async def analyze_virality(
     Returns virality_score (0-1), virality_level, key factors, recommendations.
     """
     return await handle_predict_virality(content, content_type, platform)
+
+
+@router.get("/providers/")
+async def list_providers():
+    """
+    Lista todos los AI providers disponibles (7 directores OMEGA).
+
+    Returns dict con metadata de cada director:
+    - provider: anthropic, openai, deepseek, gemini, groq
+    - model: Modelo específico
+    - description: Descripción del director
+    - strengths: Fortalezas
+    - best_for: Casos de uso óptimos
+    """
+    from app.services.ai_providers import AIProviders
+    providers = AIProviders()
+    return {
+        "directors": providers.list_directors(),
+        "default": providers.get_default_director()
+    }
