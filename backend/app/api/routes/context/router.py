@@ -1,8 +1,8 @@
 """Context Library Router"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional
-from .handlers import handle_list_context, handle_create_context, handle_delete_context, handle_get_context_for_agent, handle_extract_url
+from .handlers import handle_list_context, handle_create_context, handle_delete_context, handle_get_context_for_agent, handle_extract_url, handle_extract_file
 
 class CreateContextRequest(BaseModel):
     name: str
@@ -78,3 +78,8 @@ async def clear_context_cache():
     ctx_module._global_cache = None
     ctx_module._global_cache_time = None
     return {"cleared": True, "message": "Context cache cleared - next NOVA chat will refresh from DB"}
+
+@router.post("/extract-file/")
+async def extract_file(file: UploadFile = File(...)):
+    """Extract text from uploaded file (PDF, TXT, MD)"""
+    return await handle_extract_file(file)
