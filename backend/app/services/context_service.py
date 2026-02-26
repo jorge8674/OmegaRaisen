@@ -9,10 +9,10 @@ from app.infrastructure.supabase_service import get_supabase_service
 
 logger = logging.getLogger(__name__)
 
-# Cache for global context (refresh every 1h)
+# Cache for global context (refresh every 5min)
 _global_cache: Optional[str] = None
 _global_cache_time: Optional[datetime] = None
-CACHE_TTL_MINUTES = 60
+CACHE_TTL_MINUTES = 5
 
 
 class ContextService:
