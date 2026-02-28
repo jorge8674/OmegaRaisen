@@ -22,7 +22,7 @@ from .handlers import (
 router = APIRouter(prefix="/content-lab", tags=["content-lab"])
 
 
-@router.post("/generate/")
+@router.post("/generate/text")
 async def generate_text(
     account_id: str = Query(..., description="Social account UUID"),
     content_type: str = Query(..., description="Content type: caption, story, etc."),

@@ -3,7 +3,7 @@ Handoff API Models — Request/Response schemas for inter-agent handoff protocol
 DDD: API Interface layer - contracts for external communication.
 Strict <200L per file.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -16,6 +16,14 @@ class HandoffCreateRequest(BaseModel):
     payload: Dict[str, Any] = Field(..., description="Task-specific data")
     priority: str = Field(default="NORMAL", description="URGENT | HIGH | NORMAL | LOW")
     deadline: Optional[str] = Field(None, description="ISO8601 deadline (optional)")
+
+    @field_validator('priority', mode='before')
+    @classmethod
+    def normalize_priority(cls, v):
+        """Convert priority to uppercase to accept 'high' or 'HIGH'"""
+        if isinstance(v, str):
+            return v.upper()
+        return v
 
     class Config:
         schema_extra = {
