@@ -1,16 +1,14 @@
 """
 Handler de generación/edición de imágenes para Content Lab.
 - DALL-E 3: Generación desde cero
-- GPT-Image-1: Edición con imágenes base
+- FAL.ai Flux Kontext: Edición con imágenes base
 Filosofía: No velocity, only precision 🐢💎
 """
 from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
 import logging
 import os
-import base64
-import io
-import httpx
+import fal_client
 from app.infrastructure.supabase_service import get_supabase_service
 from app.infrastructure.ai.openai_service import openai_service
 
@@ -21,7 +19,7 @@ async def handle_generate_image(
 ) -> Dict[str, Any]:
     """
     Handler HTTP para generación/edición de imágenes.
-    - Si hay attachments → editar con GPT-Image-1
+    - Si hay attachments → editar con FAL Flux Kontext
     - Sin attachments → generar con DALL-E 3
     """
     try:
@@ -40,8 +38,8 @@ async def handle_generate_image(
         # 2. Detectar si es edición o generación
         image_attachments = [a for a in (attachments or []) if a.get("type") == "image" or "base64" in a]
         if image_attachments:
-            logger.info(f"Editing image for {client_name} with GPT-Image-1 ({len(image_attachments)} images)")
-            result = await _edit_with_gpt_image1(prompt, image_attachments, style)
+            logger.info(f"Editing image for {client_name} with FAL Flux Kontext ({len(image_attachments)} images)")
+            result = await _edit_with_fal_kontext(prompt, image_attachments, style)
         else:
             logger.info(f"Generating image for {client_name} with DALL-E 3")
             result = await _generate_with_dalle3(prompt, style)
@@ -78,58 +76,67 @@ async def handle_generate_image(
         logger.error(f"Image generation failed: {e}")
         raise HTTPException(500, f"Error generando imagen: {str(e)}")
 
-async def _edit_with_gpt_image1(prompt: str, images: List[Dict[str, Any]], style: str) -> Dict[str, Any]:
+async def _edit_with_fal_kontext(prompt: str, images: List[Dict[str, Any]], style: str) -> Dict[str, Any]:
     """
-    Edita imagen(es) con GPT-Image-1.
-    Soporta: agregar logos, modificar elementos, combinar imágenes, cambiar fondo, etc.
+    Edita imagen con FAL.ai Flux Kontext Pro.
+    Soporta: agregar logos a fotos reales, modificar elementos, combinar imágenes.
     """
-    # Preparar imágenes como bytes
-    image_files = []
-    for img in images[:4]:  # Máximo 4 imágenes
-        base64_data = img.get("base64", "")
-        if not base64_data:
-            continue
-        # Remover prefijo data:image/xxx;base64, si existe
-        if "," in base64_data:
-            base64_data = base64_data.split(",", 1)[1]
-        try:
-            image_bytes = base64.b64decode(base64_data)
-            image_files.append(("image", ("image.png", io.BytesIO(image_bytes), "image/png")))
-        except Exception as e:
-            logger.warning(f"Failed to decode base64 image: {e}")
-            continue
+    # Configurar FAL key
+    os.environ["FAL_KEY"] = os.getenv("FAL_KEY", "")
 
-    if not image_files:
-        # Fallback a DALL-E 3 si no hay imágenes válidas
-        logger.warning("No valid images for editing, falling back to DALL-E 3")
+    # Validar que hay al menos una imagen
+    if not images:
+        logger.warning("No images provided for editing, falling back to DALL-E 3")
         return await _generate_with_dalle3(prompt, style)
 
-    # Construir prompt mejorado
+    # Usar primera imagen como base
+    first_image = images[0]
+    base64_data = first_image.get("base64", "")
+
+    if not base64_data:
+        logger.warning("Empty base64 data, falling back to DALL-E 3")
+        return await _generate_with_dalle3(prompt, style)
+
+    # Remover prefijo data:image/xxx;base64, si existe
+    if "," in base64_data:
+        base64_data = base64_data.split(",", 1)[1]
+
+    # Flux Kontext necesita data URI
+    image_data_uri = f"data:image/png;base64,{base64_data}"
+
+    # Construir prompt mejorado según estilo
     enhanced_prompt = _enhance_prompt(prompt, style)
 
-    # Llamar GPT-Image-1 edit endpoint
+    # Llamar FAL.ai Flux Kontext Pro
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/images/edits",
-                headers={"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"},
-                data={"model": "gpt-image-1", "prompt": enhanced_prompt, "n": 1, "size": "1024x1024"},
-                files=image_files
-            )
-            response.raise_for_status()
-            result = response.json()
+        result = await fal_client.run_async(
+            "fal-ai/flux-pro/kontext",
+            arguments={
+                "prompt": enhanced_prompt,
+                "image_url": image_data_uri,
+                "guidance_scale": 3.5,
+                "num_inference_steps": 28,
+                "safety_tolerance": "2"
+            }
+        )
+
+        if not result.get("images") or len(result["images"]) == 0:
+            raise Exception("FAL Flux Kontext returned no images")
+
+        image_url = result["images"][0]["url"]
+
+        return {
+            "image_url": image_url,
+            "provider": "fal",
+            "model": "flux-kontext-pro",
+            "mode": "edit"
+        }
+
     except Exception as e:
-        logger.error(f"GPT-Image-1 edit failed: {e}")
-        return await _generate_with_dalle3(prompt, style)  # Fallback a DALL-E 3
-
-    # GPT-Image-1 puede retornar base64 o URL
-    if result["data"][0].get("b64_json"):
-        b64 = result["data"][0]["b64_json"]
-        image_url = f"data:image/png;base64,{b64}"
-    else:
-        image_url = result["data"][0].get("url", "")
-
-    return {"image_url": image_url, "provider": "openai", "model": "gpt-image-1", "mode": "edit"}
+        logger.error(f"FAL Flux Kontext edit failed: {e}")
+        # Fallback a DALL-E 3 si falla
+        logger.warning("Falling back to DALL-E 3 generation")
+        return await _generate_with_dalle3(prompt, style)
 
 async def _generate_with_dalle3(prompt: str, style: str) -> Dict[str, Any]:
     """Generación nueva con DALL-E 3 (sin imágenes base)"""
@@ -154,7 +161,7 @@ def _enhance_prompt(prompt: str, style: str) -> str:
     }
     suffix = style_suffixes.get(style, style_suffixes["realistic"])
     enhanced = f"{prompt}{suffix}"
-    # DALL-E 3 limit: 4000 chars
+    # Flux Kontext limit: reasonable prompt length
     if len(enhanced) > 4000:
         max_prompt_len = 4000 - len(suffix)
         enhanced = f"{prompt[:max_prompt_len]}{suffix}"
