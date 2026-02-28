@@ -1,5 +1,5 @@
 """
-NOVA Router - Data Persistence & Agent Memory
+NOVA Router - Data Persistence, Agent Memory & Intelligence Layer
 Filosofía: No velocity, only precision 🐢💎
 """
 from fastapi import APIRouter, Query
@@ -13,7 +13,12 @@ from .handlers import (
     handle_save_agent_memory,
     SaveAgentMemoryRequest,
     handle_chat,
-    ChatRequest
+    ChatRequest,
+    handle_get_briefing,
+    handle_save_nova_memory,
+    SaveNovaMemoryRequest,
+    handle_execute_action,
+    ExecuteActionRequest
 )
 
 router = APIRouter(prefix="/nova", tags=["NOVA 👑"])
@@ -51,3 +56,21 @@ async def save_agent_memory(request: SaveAgentMemoryRequest):
 async def nova_chat(request: ChatRequest):
     """Chat with NOVA AI assistant"""
     return await handle_chat(request)
+
+
+@router.get("/briefing")
+async def get_briefing():
+    """Get AI-optimized system snapshot for NOVA consciousness"""
+    return await handle_get_briefing()
+
+
+@router.post("/memory")
+async def save_nova_memory(request: SaveNovaMemoryRequest):
+    """Save NOVA-specific memory entry"""
+    return await handle_save_nova_memory(request)
+
+
+@router.post("/execute")
+async def execute_action(request: ExecuteActionRequest):
+    """Execute NOVA actions: create_handoff, save_memory, get_briefing"""
+    return await handle_execute_action(request)
