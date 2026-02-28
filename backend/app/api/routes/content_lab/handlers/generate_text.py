@@ -90,13 +90,37 @@ async def handle_generate_text(
 
         # 4. Llamar al AI provider seleccionado (multi-engine)
         ai_providers = AIProviders()
-        llm_response = await ai_providers.generate(
-            director=director_normalized,
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            max_tokens=2000,
-            temperature=0.7
-        )
+        fallback_used = False
+        original_director = director_normalized
+
+        try:
+            llm_response = await ai_providers.generate(
+                director=director_normalized,
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=2000,
+                temperature=0.7
+            )
+        except Exception as llm_error:
+            # Fallback to REX if primary director fails
+            logger.error(
+                f"LLM generation failed for director={director_normalized}: {llm_error}",
+                exc_info=True
+            )
+            if director_normalized != "REX":
+                logger.warning(f"Falling back from {director_normalized} to REX (GPT-4o-mini)")
+                fallback_used = True
+                director_normalized = "REX"
+                llm_response = await ai_providers.generate(
+                    director="REX",
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=2000,
+                    temperature=0.7
+                )
+            else:
+                # REX itself failed - no fallback available
+                raise
 
         # 5. Guardar en DB (including vault_prompt_id for tracking)
         supabase.client.table("content_lab_generated").insert({
@@ -115,9 +139,17 @@ async def handle_generate_text(
             f"via {director_normalized} ({llm_response['provider']}/{llm_response['model']})"
         )
 
-        # 6. Retornar response en formato flat (with vault metadata)
-        return {
-            "generated_text": llm_response["content"],
+        # 6. Ensure UTF-8 encoding (fix for "Â¡" corrupted chars)
+        generated_text = llm_response["content"]
+        if isinstance(generated_text, bytes):
+            generated_text = generated_text.decode('utf-8', errors='replace')
+        # Normalize unicode (NFC form for proper char representation)
+        import unicodedata
+        generated_text = unicodedata.normalize('NFC', generated_text)
+
+        # 7. Retornar response en formato flat (with vault metadata + fallback info)
+        response_data = {
+            "generated_text": generated_text,
             "content_type": content_type,
             "provider": llm_response["provider"],
             "model": llm_response["model"],
@@ -127,10 +159,18 @@ async def handle_generate_text(
             "vault_prompt_used": vault_used
         }
 
+        # Add fallback metadata if fallback was used
+        if fallback_used:
+            response_data["fallback_used"] = True
+            response_data["original_director"] = original_director
+            response_data["fallback_reason"] = f"{original_director} unavailable"
+
+        return response_data
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Text generation failed: {e}")
+        logger.error(f"Text generation failed: {e}", exc_info=True)
         raise HTTPException(500, f"Error generando contenido: {str(e)}")
 
 
