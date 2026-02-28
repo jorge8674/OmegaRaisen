@@ -34,6 +34,14 @@ async def handle_generate_text(
     Workflow: Load context → Select prompt → Generate → Save → Return
     """
     try:
+        # Map organizational agents to AI Directors
+        AGENT_TO_DIRECTOR = {
+            "RAFA": "REX",  # RAFA (Content Creator) → REX (GPT-4o-mini, fast)
+            "ATLAS": "ATLAS",  # Pass-through
+            "NOVA": "NOVA"  # Pass-through
+        }
+        director_normalized = AGENT_TO_DIRECTOR.get(director.upper(), director.upper())
+
         # Normalize content_type
         content_type = CONTENT_TYPE_MAP.get(content_type, content_type)
 
@@ -83,7 +91,7 @@ async def handle_generate_text(
         # 4. Llamar al AI provider seleccionado (multi-engine)
         ai_providers = AIProviders()
         llm_response = await ai_providers.generate(
-            director=director.upper(),
+            director=director_normalized,
             prompt=user_prompt,
             system_prompt=system_prompt,
             max_tokens=2000,
@@ -104,7 +112,7 @@ async def handle_generate_text(
 
         logger.info(
             f"Generated {content_type} for client {client_id} "
-            f"via {director.upper()} ({llm_response['provider']}/{llm_response['model']})"
+            f"via {director_normalized} ({llm_response['provider']}/{llm_response['model']})"
         )
 
         # 6. Retornar response en formato flat (with vault metadata)
@@ -113,7 +121,7 @@ async def handle_generate_text(
             "content_type": content_type,
             "provider": llm_response["provider"],
             "model": llm_response["model"],
-            "director": director.upper(),
+            "director": director_normalized,
             "cached": False,
             "tokens_used": llm_response["tokens_used"],
             "vault_prompt_used": vault_used
