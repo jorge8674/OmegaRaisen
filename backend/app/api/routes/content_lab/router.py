@@ -5,7 +5,7 @@ Filosofía: No velocity, only precision 🐢💎
 from fastapi import APIRouter, Query
 
 from .models import (
-    ContentListResponse, DeleteContentResponse, ImageGenerateRequest
+    ContentListResponse, DeleteContentResponse, GenerateImageRequest
 )
 from .handlers import (
     handle_generate_text,
@@ -47,7 +47,7 @@ async def generate_text(
 
 @router.post("/generate-image/")
 async def generate_image(
-    request: ImageGenerateRequest,
+    request: GenerateImageRequest,
     account_id: str = Query(None, description="Social account UUID (query param fallback)")
 ):
     """
