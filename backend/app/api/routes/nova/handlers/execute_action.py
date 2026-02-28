@@ -57,7 +57,7 @@ async def handle_execute_action(request: ExecuteActionRequest) -> Dict[str, Any]
                 to_agent=request.target_agent,
                 task_type=request.payload.get("task_type", "general"),
                 payload=request.payload.get("data", {}),
-                priority=request.payload.get("priority", "NORMAL"),
+                priority=(request.payload.get("priority") or "NORMAL").upper(),
                 deadline=request.payload.get("deadline")
             )
 
@@ -69,7 +69,7 @@ async def handle_execute_action(request: ExecuteActionRequest) -> Dict[str, Any]
                     "memory_type": "operational_rule",
                     "content": f"Delegated {request.payload.get('task_type')} to {request.target_agent}",
                     "related_agents": [request.target_agent],
-                    "priority": request.payload.get("priority", "NORMAL").lower(),
+                    "priority": (request.payload.get("priority") or "NORMAL").lower(),
                     "created_at": datetime.utcnow().isoformat()
                 }
                 supabase.client.table("omega_agent_memory").insert(memory_entry).execute()
