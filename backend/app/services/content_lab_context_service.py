@@ -36,16 +36,16 @@ class ContentLabContextService:
         # Load client context
         client_context = self.context_repo.find_by_client_id(client_id)
 
-        # Load brand_file from client_context table
+        # Load brand voice from client_context table (custom_instructions JSONB)
         brand_file_response = self.supabase.client.table("client_context")\
-            .select("brand_file, vertical")\
+            .select("custom_instructions, vertical")\
             .eq("client_id", client_id)\
             .execute()
 
         brand_file = {}
-        if brand_file_response.data and brand_file_response.data[0].get("brand_file"):
-            brand_file = brand_file_response.data[0]["brand_file"]
-            logger.info(f"Loaded brand_file for client {client_id}")
+        if brand_file_response.data and brand_file_response.data[0].get("custom_instructions"):
+            brand_file = brand_file_response.data[0]["custom_instructions"]
+            logger.info(f"Loaded brand voice from custom_instructions for client {client_id}")
 
         # Extract brand voice rules
         brand_voice_rules = self._extract_brand_voice_rules(brand_file)
