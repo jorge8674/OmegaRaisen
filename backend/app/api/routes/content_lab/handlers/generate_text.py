@@ -1,162 +1,83 @@
 """
 Handler de generación de texto para Content Lab.
 Filosofía: No velocity, only precision 🐢💎
+DDD: API Interface layer - thin orchestration over services.
+Strict <200L per file.
 """
 from typing import Dict, Any
 from fastapi import HTTPException
 import logging
 
-from app.api.routes.content_lab.builders.prompt_builder import (
-    build_user_prompt, build_system_prompt
-)
 from app.services.ai_providers import AIProviders
 from app.infrastructure.supabase_service import get_supabase_service
-from app.infrastructure.repositories.client_context_repository import ClientContextRepository
+from app.services.content_lab_context_service import ContentLabContextService
+from app.services.content_lab_prompt_service import ContentLabPromptService
 
 logger = logging.getLogger(__name__)
 
+# Content type aliases (frontend variations)
+CONTENT_TYPE_MAP = {
+    "reel_script": "reel",
+    "reel_tiktok": "reel",
+    "ad": "anuncio",
+    "hashtag": "hashtags",
+    "topic": "hashtags",
+}
+
 
 async def handle_generate_text(
-    account_id: str,
-    content_type: str,
-    brief: str,
-    language: str = "es",
-    director: str = "REX"
+    account_id: str, content_type: str, brief: str,
+    language: str = "es", director: str = "REX"
 ) -> dict:
     """
-    Handler HTTP para generación de texto.
-
-    Workflow:
-    1. Obtener client_id y contexto desde account_id
-    2. Construir prompts (user + system)
-    3. Llamar al AI provider seleccionado (multi-engine)
-    4. Guardar resultado en DB
-    5. Retornar response en formato flat
-
-    Args:
-        account_id: Social account UUID
-        content_type: Tipo de contenido (caption, story, etc.)
-        brief: Brief del usuario
-        language: Idioma (default: es)
-        director: AI Director (NOVA, ATLAS, LUNA, REX, VERA, KIRA, ORACLE)
-
-    Returns:
-        Dict con generated_text, content_type, provider, model, cached, tokens_used
-
-    Raises:
-        HTTPException: Si falla validación o generación
+    Generates text using Prompt Vault + AI providers.
+    Workflow: Load context → Select prompt → Generate → Save → Return
     """
     try:
-        # Normalize content_type aliases (frontend may send variations)
-        CONTENT_TYPE_MAP = {
-            "reel_script": "reel",
-            "reel_tiktok": "reel",
-            "ad": "anuncio",
-            "hashtag": "hashtags",
-            "topic": "hashtags",  # Frontend sometimes sends "topic" for hashtags
-        }
+        # Normalize content_type
         content_type = CONTENT_TYPE_MAP.get(content_type, content_type)
 
         # Get Supabase client
         supabase = get_supabase_service()
 
-        # 1. Obtener client_id - intenta social_accounts, luego clients
-        account_response = supabase.client.table("social_accounts")\
-            .select("client_id, platform, clients!inner(name, plan)")\
-            .eq("id", account_id)\
-            .execute()
+        # 1. Obtener client_id y platform - intenta social_accounts, luego clients
+        client_id, client_name, plan, platform, social_account_id = (
+            _lookup_client_and_account(supabase, account_id)
+        )
 
-        social_account_id = None
-        if account_response.data:
-            # Es un social_account
-            account = account_response.data[0]
-            client_id = account["client_id"]
-            client_name = account["clients"]["name"]
-            plan = account["clients"].get("plan") or "pro_197"
-            platform = account["platform"]
-            social_account_id = account_id
-        else:
-            # Intenta buscar como client_id directo
-            client_response = supabase.client.table("clients")\
-                .select("id, name, plan")\
-                .eq("id", account_id)\
-                .execute()
-            if not client_response.data:
-                raise HTTPException(404, f"Account or client {account_id} not found")
-            client = client_response.data[0]
-            client_id = client["id"]
-            client_name = client["name"]
-            plan = client.get("plan") or "pro_197"
-            platform = "instagram"  # Default platform
-            # Buscar primer social_account del cliente
-            social_resp = supabase.client.table("social_accounts")\
-                .select("id, platform")\
-                .eq("client_id", client_id)\
-                .limit(1)\
-                .execute()
-            if social_resp.data:
-                social_account_id = social_resp.data[0]["id"]
-                platform = social_resp.data[0]["platform"]
-            else:
-                raise HTTPException(400, f"Client {client_id} has no social accounts")
-
-        # Normalize plan to match LLM_TIERS keys
-        plan_map = {
-            "basico": "basico_97",
-            "pro": "pro_197",
-            "enterprise": "enterprise_497",
-            "basico_97": "basico_97",
-            "pro_197": "pro_197",
-            "enterprise_497": "enterprise_497"
-        }
-        user_tier = plan_map.get(plan, "pro_197")  # Default to pro_197
+        # Normalize plan to match LLM_TIERS
+        user_tier = _normalize_plan(plan)
 
         logger.info(
             f"Generating {content_type} for {client_name} ({user_tier}) - "
             f"brief: {brief[:50]}..."
         )
 
-        # 2. Load client context (enriched from ClientContextAgent)
-        context_repo = ClientContextRepository(supabase)
-        client_context = context_repo.find_by_client_id(client_id)
-
-        # Use context if available, otherwise defaults
-        if client_context and client_context.has_context():
-            audience = client_context.target_audience or "General"
-            tone = client_context.tone or "professional"
-            brand_voice = client_context.brand_voice
-            keywords = client_context.content_themes or []
-            context_data = {
-                "business_type": client_context.niche,
-                "preferred_formats": client_context.preferred_formats
-            }
-            logger.info(f"Using enriched context for client {client_id}")
-        else:
-            # Default context values
-            context_data = {}
-            audience = "General"
-            tone = "professional"
-            brand_voice = None
-            keywords = []
-            logger.info(f"No context found for client {client_id}, using defaults")
-
-        goal = "engagement"
-
-        # 3. Construir prompts
-        user_prompt = build_user_prompt(
-            content_type=content_type,
-            brief=brief,
-            platform=platform,
-            audience=audience,
-            tone=tone,
-            goal=goal
+        # 2. Load client context + brand voice
+        context_service = ContentLabContextService(supabase)
+        context_data, audience, tone, keywords, brand_voice = (
+            context_service.load_context_with_brand_voice(client_id)
         )
 
-        system_prompt = build_system_prompt(
-            client_name=client_name,
-            business_type=context_data.get("business_type"),
-            brand_voice=brand_voice,
-            keywords=keywords
+        # 3. Select and build prompts (vault vs default)
+        prompt_service = ContentLabPromptService(supabase)
+        vertical = context_data.get("business_type") or "generic"
+
+        user_prompt, system_prompt, vault_used = (
+            await prompt_service.select_and_build_prompts(
+                content_type=content_type,
+                vertical=vertical,
+                platform=platform,
+                brief=brief,
+                client_name=client_name,
+                audience=audience,
+                tone=tone,
+                language=language,
+                goal="engagement",
+                context_data=context_data,
+                brand_voice=brand_voice,
+                keywords=keywords
+            )
         )
 
         # 4. Llamar al AI provider seleccionado (multi-engine)
@@ -169,7 +90,7 @@ async def handle_generate_text(
             temperature=0.7
         )
 
-        # 5. Guardar en DB
+        # 5. Guardar en DB (including vault_prompt_id for tracking)
         supabase.client.table("content_lab_generated").insert({
             "client_id": client_id,
             "social_account_id": social_account_id,
@@ -177,7 +98,8 @@ async def handle_generate_text(
             "content": llm_response["content"],
             "provider": llm_response["provider"],
             "model": llm_response["model"],
-            "tokens_used": llm_response["tokens_used"]
+            "tokens_used": llm_response["tokens_used"],
+            "vault_prompt_id": vault_used["id"] if vault_used else None
         }).execute()
 
         logger.info(
@@ -185,15 +107,16 @@ async def handle_generate_text(
             f"via {director.upper()} ({llm_response['provider']}/{llm_response['model']})"
         )
 
-        # 6. Retornar response en formato flat (igual que imagen)
+        # 6. Retornar response en formato flat (with vault metadata)
         return {
             "generated_text": llm_response["content"],
             "content_type": content_type,
             "provider": llm_response["provider"],
             "model": llm_response["model"],
             "director": director.upper(),
-            "cached": False,  # Not using cache for now
-            "tokens_used": llm_response["tokens_used"]
+            "cached": False,
+            "tokens_used": llm_response["tokens_used"],
+            "vault_prompt_used": vault_used
         }
 
     except HTTPException:
@@ -201,3 +124,64 @@ async def handle_generate_text(
     except Exception as e:
         logger.error(f"Text generation failed: {e}")
         raise HTTPException(500, f"Error generando contenido: {str(e)}")
+
+
+def _lookup_client_and_account(supabase, account_id: str) -> tuple:
+    """Lookup client data. Tries social_accounts first, then clients table."""
+    # Try social_accounts first
+    account_response = supabase.client.table("social_accounts")\
+        .select("client_id, platform, clients!inner(name, plan)")\
+        .eq("id", account_id)\
+        .execute()
+
+    if account_response.data:
+        account = account_response.data[0]
+        return (
+            account["client_id"],
+            account["clients"]["name"],
+            account["clients"].get("plan") or "pro_197",
+            account["platform"],
+            account_id
+        )
+
+    # Fallback: try as client_id
+    client_response = supabase.client.table("clients")\
+        .select("id, name, plan")\
+        .eq("id", account_id)\
+        .execute()
+
+    if not client_response.data:
+        raise HTTPException(404, f"Account or client {account_id} not found")
+
+    client = client_response.data[0]
+
+    # Find first social account for this client
+    social_resp = supabase.client.table("social_accounts")\
+        .select("id, platform")\
+        .eq("client_id", client["id"])\
+        .limit(1)\
+        .execute()
+
+    if not social_resp.data:
+        raise HTTPException(400, f"Client {client['id']} has no social accounts")
+
+    return (
+        client["id"],
+        client["name"],
+        client.get("plan") or "pro_197",
+        social_resp.data[0]["platform"],
+        social_resp.data[0]["id"]
+    )
+
+
+def _normalize_plan(plan: str) -> str:
+    """Normalize plan to match LLM_TIERS keys"""
+    plan_map = {
+        "basico": "basico_97",
+        "pro": "pro_197",
+        "enterprise": "enterprise_497",
+        "basico_97": "basico_97",
+        "pro_197": "pro_197",
+        "enterprise_497": "enterprise_497"
+    }
+    return plan_map.get(plan, "pro_197")

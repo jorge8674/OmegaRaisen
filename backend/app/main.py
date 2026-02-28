@@ -26,7 +26,7 @@ from app.api.routes import (
     content, strategy, analytics, engagement, monitor, brand_voice, competitive, trends, crisis,
     reports, growth, video_production, scheduling, ab_testing, orchestrator, resellers, auth,
     billing, context, clients, social_accounts, brand_files, content_lab, calendar, agents,
-    system, omega, nova, sentinel, oracle
+    system, omega, nova, sentinel, oracle, prompt_vault, handoff
 )
 
 # Services & scheduler
@@ -110,6 +110,8 @@ app.include_router(omega.router, prefix=settings.api_v1_prefix, tags=["OMEGA Com
 app.include_router(nova.router, prefix=settings.api_v1_prefix, tags=["NOVA 👑"])
 app.include_router(sentinel.router, prefix=settings.api_v1_prefix, tags=["SENTINEL 🛡️"])
 app.include_router(oracle.router, prefix=settings.api_v1_prefix + "/oracle", tags=["ORACLE 🔮"])
+app.include_router(prompt_vault.router, prefix=settings.api_v1_prefix, tags=["Prompt Vault 📚"])
+app.include_router(handoff.router, prefix=settings.api_v1_prefix, tags=["Handoff Protocol 🤝"])
 
 @app.get("/")
 async def root() -> dict[str, str | int]:
