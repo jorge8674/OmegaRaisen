@@ -38,27 +38,6 @@ class AIProviders:
     def list_directors(self) -> Dict[str, Dict[str, Any]]:
         return self.DIRECTORS
 
-    def _fix_encoding(self, text: str) -> str:
-        """
-        Fix UTF-8 encoding issues (¡ not Â¡, á not Ã¡).
-        LLM responses sometimes come as latin-1 bytes misinterpreted as UTF-8.
-        """
-        if not text or isinstance(text, bytes):
-            return text.decode('utf-8', errors='replace') if isinstance(text, bytes) else text
-
-        try:
-            # Try to detect and fix latin-1 misinterpretation
-            # If text has Â¡ (latin-1 for ¡ read as UTF-8), fix it
-            text_bytes = text.encode('latin-1')
-            fixed = text_bytes.decode('utf-8', errors='replace')
-            # Normalize to NFC (canonical form)
-            import unicodedata
-            return unicodedata.normalize('NFC', fixed)
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            # Text is already correct UTF-8, just normalize
-            import unicodedata
-            return unicodedata.normalize('NFC', text)
-
     async def generate(self, director: str, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 2000, temperature: float = 0.7) -> Dict[str, Any]:
         """Generate content using specified director's AI engine."""
         config = self.DIRECTORS.get(director)
@@ -85,17 +64,20 @@ class AIProviders:
             raise
 
     async def _anthropic_generate(self, model: str, prompt: str, system_prompt: Optional[str], max_tokens: int, temperature: float) -> Dict[str, Any]:
-        response = await self.anthropic.messages.create(
-            model=model, max_tokens=max_tokens, temperature=temperature,
-            system=system_prompt or "", messages=[{"role": "user", "content": prompt}]
-        )
-        # Fix UTF-8 encoding (defensive, Claude usually returns proper UTF-8)
-        raw_content = response.content[0].text
-        content = self._fix_encoding(raw_content)
-        return {
-            "content": content, "provider": "anthropic", "model": model,
-            "tokens_used": response.usage.input_tokens + response.usage.output_tokens
-        }
+        # Debug logging for NOVA model issues
+        try:
+            response = await self.anthropic.messages.create(
+                model=model, max_tokens=max_tokens, temperature=temperature,
+                system=system_prompt or "", messages=[{"role": "user", "content": prompt}]
+            )
+            logger.info(f"✅ Anthropic OK: model={model}, chars={len(response.content[0].text)}")
+            return {
+                "content": response.content[0].text, "provider": "anthropic", "model": model,
+                "tokens_used": response.usage.input_tokens + response.usage.output_tokens
+            }
+        except Exception as e:
+            logger.error(f"❌ Anthropic FAIL: model={model}, error={type(e).__name__}: {e}", exc_info=True)
+            raise
 
     async def _openai_generate(self, model: str, prompt: str, system_prompt: Optional[str], max_tokens: int, temperature: float) -> Dict[str, Any]:
         messages = []
@@ -105,11 +87,8 @@ class AIProviders:
         response = await self.openai.chat.completions.create(
             model=model, messages=messages, max_tokens=max_tokens, temperature=temperature
         )
-        # Fix UTF-8 encoding (¡ not Â¡, á not Ã¡)
-        raw_content = response.choices[0].message.content
-        content = self._fix_encoding(raw_content)
         return {
-            "content": content, "provider": "openai", "model": model,
+            "content": response.choices[0].message.content, "provider": "openai", "model": model,
             "tokens_used": response.usage.total_tokens if response.usage else 0
         }
 
@@ -121,11 +100,8 @@ class AIProviders:
         response = await self.deepseek.chat.completions.create(
             model=model, messages=messages, max_tokens=max_tokens, temperature=temperature
         )
-        # Fix UTF-8 encoding
-        raw_content = response.choices[0].message.content
-        content = self._fix_encoding(raw_content)
         return {
-            "content": content, "provider": "deepseek", "model": model,
+            "content": response.choices[0].message.content, "provider": "deepseek", "model": model,
             "tokens_used": response.usage.total_tokens if response.usage else 0
         }
 
@@ -142,9 +118,7 @@ class AIProviders:
             )
             response.raise_for_status()
             data = response.json()
-        # Fix UTF-8 encoding
-        raw_content = data["candidates"][0]["content"]["parts"][0]["text"]
-        content = self._fix_encoding(raw_content)
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
         return {
             "content": content, "provider": "gemini", "model": model,
             "tokens_used": data.get("usageMetadata", {}).get("totalTokenCount", 0)
@@ -158,10 +132,7 @@ class AIProviders:
         response = await self.groq.chat.completions.create(
             model=model, messages=messages, max_tokens=max_tokens, temperature=temperature
         )
-        # Fix UTF-8 encoding
-        raw_content = response.choices[0].message.content
-        content = self._fix_encoding(raw_content)
         return {
-            "content": content, "provider": "groq", "model": model,
+            "content": response.choices[0].message.content, "provider": "groq", "model": model,
             "tokens_used": response.usage.total_tokens if response.usage else 0
         }
